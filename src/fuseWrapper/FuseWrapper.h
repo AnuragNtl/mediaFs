@@ -4,6 +4,8 @@
 
 #define FUSE_USE_VERSION 30
 
+#include <iostream>
+#include <vector>
 #include <fuse.h>
 
 namespace MediaFs {
