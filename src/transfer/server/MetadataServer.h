@@ -1,8 +1,8 @@
-#ifndef TRANSFER_SERVER_H
+#ifndef MEDIA_PACKET_PARSER_H
 
-#define TRANSFER_SERVER_H
+#define MEDIA_PACKET_PARSER_H
 
-#include "../fsprovider/FSProvider.h"
+#include "../../fsprovider/FSProvider.h"
 
 #include <memory>
 
@@ -12,7 +12,7 @@ namespace MediaFs {
             int port;
             std::unique_ptr<FSProvider> client;
         public:
-            MediaPacketParser(int port, std::unique_ptr<FSProvider>);
+            MediaPacketParser(int port, std::unique_ptr<FSProvider> &&);
             void startListen();
     };
 };

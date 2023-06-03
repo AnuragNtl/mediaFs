@@ -2,13 +2,13 @@
 #include <thread>
 #include <boost/asio.hpp>
 
-#include "./TransferServer.h"
+#include "./MetadataServer.h"
 
 using boost::asio::ip::tcp;
 
 namespace MediaFs {
 
-    MediaPacketParser :: MediaPacketParser(int port, std::unique_ptr<FSProvider>) : port(port), client(client)  { }
+    MediaPacketParser :: MediaPacketParser(int port, std::unique_ptr<FSProvider> &&client) : port(port), client(std::move(client))  { }
 
     void MediaPacketParser :: startListen() {
         boost::asio::io_service ioService;
