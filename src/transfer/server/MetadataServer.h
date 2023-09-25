@@ -5,15 +5,32 @@
 #include "../../fsprovider/FSProvider.h"
 
 #include <memory>
+#include <map>
+#include <boost/asio.hpp>
+
+using boost::asio::ip::tcp;
 
 namespace MediaFs {
-    class MediaPacketParser {
+    class MediaPacketParser;
+    class MetadataServer {
         private:
             int port;
-            std::unique_ptr<FSProvider> client;
+            std::unique_ptr<MediaPacketParser> parser;
+            static void handleClient(tcp::socket *socket, MetadataServer *);
         public:
-            MediaPacketParser(int port, std::unique_ptr<FSProvider> &&);
+            MetadataServer(const MetadataServer &) = delete;
+            MetadataServer(int port, std::unique_ptr<FSProvider> &&);
             void startListen();
+    };
+
+    class MediaPacketParser {
+        private:
+            static std::map<const char, std::function<const char *(std::vector<std::string>, int &)> > functionMap;
+            std::string formatAttr(const Attr &) const;
+            std::unique_ptr<FSProvider> &&fsProvider;
+            MediaPacketParser(std::unique_ptr<FSProvider> &&);
+            const char* parse(const char *, int length, int &outputLength);
+            friend class MetadataServer;
     };
 };
 
