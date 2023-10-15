@@ -75,7 +75,7 @@ namespace MediaFs {
 
     class Server : public FSProvider {
         private:
-            std::map<std::string, std::ifstream*> openHandles;
+            std::map<std::string, FileCache*> openHandles;
             int openHandlesSize;
         public:
             Server(int openHandlesSize = DEFAULT_OPEN_HANDLES_SIZE);
