@@ -1,4 +1,5 @@
 #include "./Server.h"
+#include <list>
 #include <fstream>
 
 namespace MediaFs {
@@ -137,6 +138,16 @@ namespace MediaFs {
         for (auto pair : openHandles) {
             delete[] pair.second;
         }
+    }
+
+    void FileCache :: refreshRanges() {
+        std::list<int> ranges;
+        for (auto buffer = buffers.begin(); buffer != buffers.end(); buffer++) {
+            ranges.push_back(buffer->first);
+        }
+        ranges.sort();
+
+
     }
 }
 
