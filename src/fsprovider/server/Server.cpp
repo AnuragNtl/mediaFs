@@ -1,6 +1,7 @@
 #include "./Server.h"
 #include <list>
 #include <fstream>
+#include <memory>
 
 namespace MediaFs {
 
@@ -132,6 +133,8 @@ namespace MediaFs {
         in.seekg(offset, std::ios::beg);
         in.read(buf, size);
         in.close();
+        //TODO
+        return 0;
     }
 
     Server :: ~Server() {
@@ -141,13 +144,72 @@ namespace MediaFs {
     }
 
     void FileCache :: refreshRanges() {
-        std::list<int> ranges;
+        std::list<std::pair<int, std::unique_ptr<Buffer> > > ranges;
         for (auto buffer = buffers.begin(); buffer != buffers.end(); buffer++) {
-            ranges.push_back(buffer->first);
+            std::pair<int, std::unique_ptr<Buffer> > range(buffer->first, std::move(buffer->second));
+            ranges.push_back(std::move(range));
         }
-        ranges.sort();
+        ranges.sort([] (const std::pair<int, std::unique_ptr<Buffer> > &first, const std::pair<int, std::unique_ptr<Buffer> > &second) {
+                return first.first < second.first;
+                });
+
+        int prevFrom = -1, prevTo = -1;
+        std::pair<int, std::unique_ptr<Buffer> > *prevRange = NULL;
+        std::list<std::pair<int, std::unique_ptr<Buffer> > > combined;
+        for (auto &range : ranges) {
+            if (prevRange == NULL) {
+                prevRange = &range;
+                continue;
+            }
+            int lb = range.first, ub = range.first + range.second->size;
+            int prevFrom = prevRange->first, prevTo = prevRange->first + prevRange->second->size;
+            if ((prevFrom >= lb && prevFrom < ub) && (prevTo >= lb && prevTo < ub)) {
+                delete prevRange;
+            } else if ((lb >= prevFrom && lb < prevTo) && (ub >= prevFrom && ub < prevTo)) {
+                delete &range;
+            } else if ((lb >= prevFrom && lb < prevTo) || (ub >= prevFrom && ub < prevTo)) {
+
+            } else {
+                combined.push_back(std::move(*prevRange));
+            }
+        }
+
+
+
+
+        /*for (auto range : ranges) {
+
+        }*/
 
 
     }
-}
 
+    std::pair<int, std::unique_ptr<Buffer>>* combineRanges(std::pair<int, std::unique_ptr<Buffer> > &firstRange, std::pair<int, std::unique_ptr<Buffer> > &secondRange) {
+        Buffer *buffer = new Buffer;
+        if (firstRange.first > secondRange.first) {
+            auto temp = std::move(firstRange);
+            firstRange = std::move(secondRange);
+            secondRange = std::move(temp);
+        }
+        int lb1 = firstRange.first, ub1 = firstRange.first + firstRange.second->size;
+        int lb2 = secondRange.first, ub2 = secondRange.first + secondRange.second->size;
+        buffer->data = new char[ub2 - lb1];
+        memcpy(buffer->data, firstRange.second->data, firstRange.second->size);
+        memcpy(buffer->data + firstRange.second->size, secondRange.second->data + (ub1 - lb2),ub2 - ub1);
+        buffer->size = ub2 - lb1;
+        Buffer *firstBuffer = firstRange.second.release(),
+               *secondBuffer = secondRange.second.release();
+        delete firstBuffer;
+        delete secondBuffer;
+        return new std::pair<int, std::unique_ptr<Buffer> >(lb1, std::unique_ptr<Buffer>(buffer));
+    }
+
+    std::vector<Attr> Server :: readDir(std::string path) const {
+        return {};
+    }
+
+    Attr Server :: getAttr(std::string path) const {
+        return Attr{};
+    }
+
+}

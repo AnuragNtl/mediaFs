@@ -7,7 +7,7 @@
 
 namespace MediaFs {
 
-    MetadataServer :: MetadataServer(int port, std::unique_ptr<FSProvider> &&client) : parser(std::move(std::unique_ptr<MediaPacketParser>(new MediaPacketParser(std::move(client))))), port(port)  { }
+    MetadataServer :: MetadataServer(int port, std::unique_ptr<FSProvider> &&client) : parser(std::unique_ptr<MediaPacketParser>(new MediaPacketParser(std::move(client)))), port(port)  { }
 
     void MetadataServer :: startListen() {
         boost::asio::io_service ioService;
@@ -55,15 +55,19 @@ namespace MediaFs {
             for (const auto &attr : attrs) {
                 output += formatAttr(attr) + "\n";
             }
-            len = output.size();
-            return output.c_str();
+            len = output.size() + 1;
+            char *buf = new char[len];
+            strcpy(buf, output.c_str());
+            return buf;
         };
 
         functionMap['g'] = [this] (std::vector<std::string> data, int &len) {
             std::string file = data[0];
             std::string attr = formatAttr(this->fsProvider->getAttr(file));
-            len = attr.size();
-            return attr.c_str();
+            len = attr.size() + 1;
+            char *buf = new char[len];
+            strcpy(buf, attr.c_str());
+            return buf;
         };
     }
 

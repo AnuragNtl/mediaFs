@@ -12,7 +12,17 @@ pkg_check_modules(FUSE "fuse")
 
 add_executable(MediaFs src/MediaFs.cpp src/transfer/server/MetadataServer.cpp src/Utils.cpp)
 
+add_subdirectory(googletest)
+
+
 target_link_libraries(MediaFs pthread boost_system)
 target_link_libraries(MediaFs ${FUSE_LIBRARIES})
 add_definitions(${FUSE_CFLAGS} ${FUSE_CFLAGS_OTHER})
+
+enable_testing()
+
+add_executable(RangeTest src/test/RangeTest.cpp src/fsprovider/server/Server.cpp)
+target_link_libraries(RangeTest GTest::gtest_main)
+include(GoogleTest)
+gtest_discover_tests(RangeTest)
 
