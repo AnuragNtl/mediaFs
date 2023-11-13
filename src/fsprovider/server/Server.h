@@ -86,6 +86,8 @@ namespace MediaFs {
             virtual ~Server();
 
     };
+
+    extern std::pair<int, std::unique_ptr<Buffer> >* combineRanges(std::pair<int, std::unique_ptr<Buffer> > &, std::pair<int, std::unique_ptr<Buffer> > &);
 };
 
 #endif
