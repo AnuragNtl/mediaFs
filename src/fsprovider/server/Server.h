@@ -62,13 +62,20 @@ namespace MediaFs {
     struct Buffer {
         char *data;
         int size;
+        Buffer() = default;
+        Buffer(const char *data, int size) {
+            this->data = new char[size];
+            memcpy(this->data, data, size * sizeof(const char));
+            this->size = size;
+        }
         ~Buffer() {
             delete[] data;
         }
     };
 
     struct FileCache {
-        std::unique_ptr<std::ifstream> fileHandle;
+        std::unique_ptr<std::ifstream> &&fileHandle;
+        FileCache(std::unique_ptr<std::ifstream> &&);
         std::map<int, std::unique_ptr<Buffer> > buffers;
         void refreshRanges();
     };
