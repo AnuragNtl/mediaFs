@@ -143,6 +143,8 @@ namespace MediaFs {
         }
     }
 
+    FileCache :: FileCache(std::unique_ptr<std::ifstream> &&fileHandle) : fileHandle(std::move(fileHandle)) { }
+
     void FileCache :: refreshRanges() {
         std::list<std::pair<int, std::unique_ptr<Buffer> > > ranges;
         for (auto buffer = buffers.begin(); buffer != buffers.end(); buffer++) {
@@ -165,13 +167,25 @@ namespace MediaFs {
             int prevFrom = prevRange->first, prevTo = prevRange->first + prevRange->second->size;
             if ((prevFrom >= lb && prevFrom < ub) && (prevTo >= lb && prevTo < ub)) {
                 delete prevRange;
+                prevRange = NULL;
             } else if ((lb >= prevFrom && lb < prevTo) && (ub >= prevFrom && ub < prevTo)) {
                 delete &range;
-            } else if ((lb >= prevFrom && lb < prevTo) || (ub >= prevFrom && ub < prevTo)) {
-
+            } else if ((lb >= prevFrom && lb < (prevTo + 1)) || (ub >= prevFrom && ub < prevTo)) {
+                prevRange = MediaFs::combineRanges(*prevRange, range);
             } else {
                 combined.push_back(std::move(*prevRange));
+                prevRange = NULL;
             }
+        }
+
+        if (prevRange != NULL) {
+            combined.push_back(std::move(*prevRange));
+        }
+
+        buffers.erase(buffers.begin(), buffers.end());
+
+        for (auto &item : combined) {
+            buffers[item.first] = std::move(item.second);
         }
 
 
@@ -179,7 +193,7 @@ namespace MediaFs {
 
         /*for (auto range : ranges) {
 
-        }*/
+          }*/
 
 
     }
@@ -195,7 +209,11 @@ namespace MediaFs {
         int lb2 = secondRange.first, ub2 = secondRange.first + secondRange.second->size;
         buffer->data = new char[ub2 - lb1];
         memcpy(buffer->data, firstRange.second->data, firstRange.second->size);
-        memcpy(buffer->data + firstRange.second->size, secondRange.second->data + (ub1 - lb2),ub2 - ub1);
+        if (lb2 == (ub1 + 1)) {
+            memcpy(buffer->data + firstRange.second->size, secondRange.second->data, secondRange.second->size);
+        } else {
+            memcpy(buffer->data + firstRange.second->size, secondRange.second->data + (ub1 - lb2),ub2 - ub1);
+        }
         buffer->size = ub2 - lb1;
         Buffer *firstBuffer = firstRange.second.release(),
                *secondBuffer = secondRange.second.release();
