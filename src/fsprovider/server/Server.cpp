@@ -169,12 +169,12 @@ namespace MediaFs {
                 delete prevRange;
                 prevRange = NULL;
             } else if ((lb >= prevFrom && lb < prevTo) && (ub >= prevFrom && ub < prevTo)) {
-                delete &range;
+                range.second.release();
             } else if ((lb >= prevFrom && lb < (prevTo + 1)) || (ub >= prevFrom && ub < prevTo)) {
                 prevRange = MediaFs::combineRanges(*prevRange, range);
             } else {
                 combined.push_back(std::move(*prevRange));
-                prevRange = NULL;
+                prevRange = &range;
             }
         }
 

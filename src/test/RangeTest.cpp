@@ -71,8 +71,8 @@ TEST_F(FileCacheFixture, FileCache) {
     ASSERT_EQ(2, fileCache->buffers.size());
     ASSERT_EQ(12, fileCache->buffers[0]->size);
     ASSERT_EQ(10, fileCache->buffers[16]->size);
-    ASSERT_TRUE(memcmp("123456785678", fileCache->buffers[0]->data, 12));
-    ASSERT_TRUE(memcmp("7890123456", fileCache->buffers[16]->data, 10));
+    ASSERT_EQ(0, memcmp("123456785678", fileCache->buffers[0]->data, 12 * sizeof(char)));
+    ASSERT_EQ(0, memcmp("7890123456", fileCache->buffers[16]->data, 10 * sizeof(char)));
 }
 
 int main(int argc, char *argv[]) {
