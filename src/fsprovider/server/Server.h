@@ -3,6 +3,7 @@
 #define SERVER_H
 
 #include "../FSProvider.h"
+#include <iostream>
 #include <map>
 #include <functional>
 #include <memory>
