@@ -128,6 +128,7 @@ namespace MediaFs {
 
 
     int Server :: read(std::string path, char *buffer, int size, int offset) const {
+        FileHandle *handle = openHandles->find(path);
         std::ifstream in(path, std::ios::in | std::ios::binary);
         char *buf = new char[size];
         in.seekg(offset, std::ios::beg);
