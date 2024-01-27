@@ -22,7 +22,10 @@ add_definitions(${FUSE_CFLAGS} ${FUSE_CFLAGS_OTHER})
 enable_testing()
 
 add_executable(RangeTest src/test/RangeTest.cpp src/fsprovider/server/Server.cpp)
+add_executable(LRUCacheTest src/test/LRUCacheTest.cpp src/fsprovider/server/Server.cpp)
 target_link_libraries(RangeTest GTest::gtest_main)
+target_link_libraries(LRUCacheTest GTest::gtest_main)
 include(GoogleTest)
 gtest_discover_tests(RangeTest)
+gtest_discover_tests(LRUCacheTest)
 
