@@ -22,24 +22,10 @@ namespace MediaFs {
 
     class FSProvider {
         public:
-            virtual int read(std::string path, char *buffer, int size, int offset) const  {
-                strcpy(buffer, "1234abcd\n");
-                return 5;
-            }
-            virtual std::vector<Attr> readDir(std::string path) const  {
-                Attr attr;
-                attr.name = "abcd";
-                attr.size = 10;
-                attr.supportedType = SupportedType::REGULAR_DIR;
-                return {attr};
-            }
-            virtual Attr getAttr(std::string path) const  {
-                Attr attr;
-                attr.name = "abcd";
-                attr.size = 10;
-                attr.supportedType = SupportedType::REGULAR_DIR;
-                return attr;
-            };
+            virtual const char* read(std::string path, int &size, int offset) = 0;
+            virtual std::vector<Attr> readDir(std::string path) const = 0;
+            virtual Attr getAttr(std::string path) const = 0;;
+            virtual ~FSProvider() { }
     };
 
 };
