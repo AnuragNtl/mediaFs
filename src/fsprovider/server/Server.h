@@ -207,26 +207,31 @@ namespace MediaFs {
         }
     };
 
+    std::ostream& operator<<(std::ostream &out, const Buffer &);
+
     struct FileCache {
         private:
             static void refreshRangesInBackground(FileCache *fileCache);
         public:
             std::mutex handleMutex;
             std::map<int, std::unique_ptr<Buffer> > buffers;
-            std::unique_ptr<std::ifstream> &&fileHandle;
+            std::unique_ptr<std::ifstream> fileHandle;
             FileCache(std::unique_ptr<std::ifstream> &&);
             void refreshRanges();
             std::tuple<const char*, int> operator[](std::pair<int, int>);
     };
 
+    std::ostream& operator<<(std::ostream &, const FileCache &);
+
     class Server : public FSProvider {
         private:
             LRUCache<std::string, FileCache*> openHandles;
+            std::vector<FileCache*> addedCaches;
             int openHandlesSize;
         public:
             Server(int openHandlesSize = DEFAULT_OPEN_HANDLES_SIZE);
             Server(const Server &) = delete;
-            int read(std::string path, char *buffer, int, int);
+            const char* read(std::string path, int &, int);
             std::vector<Attr> readDir(std::string path) const;
             Attr getAttr(std::string path) const;
             virtual ~Server();

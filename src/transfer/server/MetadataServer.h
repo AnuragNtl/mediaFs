@@ -16,6 +16,7 @@ namespace MediaFs {
         private:
             int port;
             std::unique_ptr<MediaPacketParser> parser;
+            boost::asio::io_service ioService;
             static void handleClient(tcp::socket *socket, MetadataServer *);
         public:
             MetadataServer(const MetadataServer &) = delete;
@@ -27,7 +28,7 @@ namespace MediaFs {
         private:
             static std::map<const char, std::function<const char *(std::vector<std::string>, int &)> > functionMap;
             std::string formatAttr(const Attr &) const;
-            std::unique_ptr<FSProvider> &&fsProvider;
+            std::unique_ptr<FSProvider> fsProvider;
             MediaPacketParser(std::unique_ptr<FSProvider> &&);
             const char* parse(const char *, int length, int &outputLength);
             friend class MetadataServer;
