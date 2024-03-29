@@ -48,6 +48,9 @@ namespace MediaFs {
     }
 
     MediaPacketParser :: MediaPacketParser(std::unique_ptr<FSProvider> &&fsProvider) : fsProvider(std::move(fsProvider)) {
+        directions['r'] = Direction::READ;
+        directions['d'] = Direction::READ_DIR;
+        directions['g'] = Direction::GET_ATTR;
         functionMap['r'] = [this] (std::vector<std::string> data, int &len) {
             int size = stoi(data[1]);
             len = size;
@@ -94,9 +97,9 @@ namespace MediaFs {
         return NULL;
     }
 
-
     std::map<const char, std::function<const char *(std::vector<std::string>, int &)> > MediaPacketParser::functionMap = std::map<const char, std::function<const char *(std::vector<std::string>, int &)> >();
 
+    std::map<const char, Direction> MediaPacketParser :: directions = std::map<const char, Direction>();
 
     std::string MediaPacketParser :: formatAttr(const Attr &attr) const {
         return attr.name + " " + std::to_string((int)attr.supportedType) + " " + std::to_string(attr.size);
