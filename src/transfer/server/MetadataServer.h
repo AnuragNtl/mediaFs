@@ -32,6 +32,7 @@ namespace MediaFs {
             MediaPacketParser(std::unique_ptr<FSProvider> &&);
             const char* parse(const char *, int length, int &outputLength);
             friend class MetadataServer;
+            static std::string generate(const char id, std:::vector<std::string>);
     };
 };
 
