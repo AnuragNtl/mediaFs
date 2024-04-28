@@ -1,5 +1,4 @@
 #include "./Server.h"
-#include <list>
 #include <fstream>
 #include <memory>
 #include <sys/stat.h>
@@ -10,7 +9,7 @@ namespace MediaFs {
 
     InvalidItemException :: InvalidItemException(std::string message) : message(message) { }
 
-    Server :: Server(int openHandlesSize) : openHandlesSize(openHandlesSize), openHandles(LRUCache<std::string, FileCache*>(openHandlesSize)) {
+    Server :: Server(int openHandlesSize) : openHandlesSize(openHandlesSize), openHandles(LRUCache<std::string, FileCache<std::ifstream>*>(openHandlesSize)) {
     }
 
     const char* Server :: read(std::string path, int &length, int offset) {
@@ -23,11 +22,11 @@ namespace MediaFs {
             return resp;
         }
         if (!openHandles.has(path)) {
-            FileCache* cache = new FileCache(std::unique_ptr<std::ifstream>(new std::ifstream(path, std::ios::in | std::ios::binary)));
+            FileCache<std::ifstream>* cache = new FileCache<std::ifstream>(std::unique_ptr<std::ifstream>(new std::ifstream(path, std::ios::in | std::ios::binary)));
             openHandles.add(path, cache);
             addedCaches.push_back(cache);
         }
-        FileCache &handle = *openHandles[path];
+        FileCache<std::ifstream> &handle = *openHandles[path];
         auto data = handle[std::make_pair(offset, offset + length)];
         length = std::get<1>(data);
         return std::get<0>(data);
@@ -35,86 +34,9 @@ namespace MediaFs {
 
     Server :: ~Server() {
         std::cout << "~Server\n";
-        for(FileCache *cache : addedCaches) {
+        for(FileCache<std::ifstream> *cache : addedCaches) {
             delete cache;
         }
-    }
-
-    FileCache :: FileCache(std::unique_ptr<std::ifstream> &&fileHandle) : fileHandle(std::move(fileHandle)) { }
-
-    void FileCache :: refreshRanges() {
-        handleMutex.lock();
-        std::list<std::pair<int, std::unique_ptr<Buffer> > > ranges;
-        for (auto buffer = buffers.begin(); buffer != buffers.end(); buffer++) {
-            std::pair<int, std::unique_ptr<Buffer> > range(buffer->first, std::move(buffer->second));
-            ranges.push_back(std::move(range));
-        }
-        ranges.sort([] (const std::pair<int, std::unique_ptr<Buffer> > &first, const std::pair<int, std::unique_ptr<Buffer> > &second) {
-                return first.first < second.first;
-                });
-
-        int prevFrom = -1, prevTo = -1;
-        std::pair<int, std::unique_ptr<Buffer> > *prevRange = NULL;
-        std::list<std::pair<int, std::unique_ptr<Buffer> > > combined;
-        for (auto &range : ranges) {
-            if (prevRange == NULL) {
-                prevRange = &range;
-                continue;
-            }
-            int lb = range.first, ub = range.first + range.second->size;
-            int prevFrom = prevRange->first, prevTo = prevRange->first + prevRange->second->size;
-            if ((prevFrom >= lb && prevFrom < ub) && (prevTo >= lb && prevTo < ub)) {
-                delete prevRange;
-                prevRange = NULL;
-            } else if ((lb >= prevFrom && lb < prevTo) && (ub >= prevFrom && ub < prevTo)) {
-                range.second.release();
-            } else if ((lb >= prevFrom && lb < (prevTo + 1)) || (ub >= prevFrom && ub < prevTo)) {
-                prevRange = MediaFs::combineRanges(*prevRange, range);
-            } else {
-                combined.push_back(std::move(*prevRange));
-                prevRange = &range;
-            }
-        }
-
-        if (prevRange != NULL) {
-            combined.push_back(std::move(*prevRange));
-        }
-
-        buffers.erase(buffers.begin(), buffers.end());
-
-        for (auto &item : combined) {
-            buffers[item.first] = std::move(item.second);
-        }
-
-        std::cout << "refreshed ranges\n";
-        std::cout << *this;
-
-        handleMutex.unlock();
-    }
-
-    std::tuple<const char*, int> FileCache :: operator[](std::pair<int, int> range) {
-        handleMutex.lock();
-        short size = range.second - range.first;
-        for (auto &buffer : buffers) {
-            if ((range.first >= buffer.first) && (range.second <= (buffer.first + buffer.second->size))) {
-                handleMutex.unlock();
-                return {buffer.second->data + (range.first - buffer.first), size};
-            }
-        }
-        fileHandle->seekg(range.first);
-        char *data = new char[size];
-        fileHandle->read(data, size);
-        buffers[range.first] = std::make_unique<Buffer>();
-        buffers[range.first]->data = data;
-        buffers[range.first]->size = fileHandle->gcount();
-        handleMutex.unlock();
-        std::thread rangeRefresher(FileCache::refreshRangesInBackground, this);
-        rangeRefresher.detach();
-        return {buffers[range.first]->data, buffers[range.first]->size};
-    }
-
-    void FileCache :: refreshRangesInBackground(FileCache *fileCache) {
-        fileCache->refreshRanges();
     }
 
     std::pair<int, std::unique_ptr<Buffer>>* combineRanges(std::pair<int, std::unique_ptr<Buffer> > &firstRange, std::pair<int, std::unique_ptr<Buffer> > &secondRange) {
@@ -164,7 +86,7 @@ namespace MediaFs {
         return out;
     }
 
-    std::ostream& operator<<(std::ostream &out, const MediaFs::FileCache &cache) {
+    std::ostream& operator<<(std::ostream &out, const MediaFs::FileCache<std::ifstream> &cache) {
         for(const auto &buffer: cache.buffers) {
             out << buffer.first << " : " << *buffer.second.get();
         }

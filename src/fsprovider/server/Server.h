@@ -6,6 +6,7 @@
 #include <map>
 #include <functional>
 #include <memory>
+#include <list>
 #include <mutex>
 #include <tuple>
 #include <thread>
@@ -209,24 +210,109 @@ namespace MediaFs {
 
     std::ostream& operator<<(std::ostream &out, const Buffer &);
 
+    extern std::pair<int, std::unique_ptr<Buffer> >* combineRanges(std::pair<int, std::unique_ptr<Buffer> > &, std::pair<int, std::unique_ptr<Buffer> > &);
+
+    template<class T>
     struct FileCache {
         private:
             static void refreshRangesInBackground(FileCache *fileCache);
         public:
             std::mutex handleMutex;
             std::map<int, std::unique_ptr<Buffer> > buffers;
-            std::unique_ptr<std::ifstream> fileHandle;
-            FileCache(std::unique_ptr<std::ifstream> &&);
+            std::unique_ptr<T> fileHandle;
+            FileCache(std::unique_ptr<T> &&);
             void refreshRanges();
             std::tuple<const char*, int> operator[](std::pair<int, int>);
     };
 
-    std::ostream& operator<<(std::ostream &, const FileCache &);
+    template<class T>
+    FileCache<T> :: FileCache(std::unique_ptr<T> &&fileHandle) : fileHandle(std::move(fileHandle)) { }
+
+    template<class T>
+    void FileCache<T> :: refreshRanges() {
+        handleMutex.lock();
+        std::list<std::pair<int, std::unique_ptr<Buffer> > > ranges;
+        for (auto buffer = buffers.begin(); buffer != buffers.end(); buffer++) {
+            std::pair<int, std::unique_ptr<Buffer> > range(buffer->first, std::move(buffer->second));
+            ranges.push_back(std::move(range));
+        }
+        ranges.sort([] (const std::pair<int, std::unique_ptr<Buffer> > &first, const std::pair<int, std::unique_ptr<Buffer> > &second) {
+                return first.first < second.first;
+                });
+
+        int prevFrom = -1, prevTo = -1;
+        std::pair<int, std::unique_ptr<Buffer> > *prevRange = NULL;
+        std::list<std::pair<int, std::unique_ptr<Buffer> > > combined;
+        for (auto &range : ranges) {
+            if (prevRange == NULL) {
+                prevRange = &range;
+                continue;
+            }
+            int lb = range.first, ub = range.first + range.second->size;
+            int prevFrom = prevRange->first, prevTo = prevRange->first + prevRange->second->size;
+            if ((prevFrom >= lb && prevFrom < ub) && (prevTo >= lb && prevTo < ub)) {
+                delete prevRange;
+                prevRange = NULL;
+            } else if ((lb >= prevFrom && lb < prevTo) && (ub >= prevFrom && ub < prevTo)) {
+                range.second.release();
+            } else if ((lb >= prevFrom && lb < (prevTo + 1)) || (ub >= prevFrom && ub < prevTo)) {
+                prevRange = MediaFs::combineRanges(*prevRange, range);
+            } else {
+                combined.push_back(std::move(*prevRange));
+                prevRange = &range;
+            }
+        }
+
+        if (prevRange != NULL) {
+            combined.push_back(std::move(*prevRange));
+        }
+
+        buffers.erase(buffers.begin(), buffers.end());
+
+        for (auto &item : combined) {
+            buffers[item.first] = std::move(item.second);
+        }
+
+        std::cout << "refreshed ranges\n";
+        std::cout << *this;
+
+        handleMutex.unlock();
+    }
+
+    template<class T>
+    std::tuple<const char*, int> FileCache<T> :: operator[](std::pair<int, int> range) {
+        handleMutex.lock();
+        short size = range.second - range.first;
+        for (auto &buffer : buffers) {
+            if ((range.first >= buffer.first) && (range.second <= (buffer.first + buffer.second->size))) {
+                handleMutex.unlock();
+                return {buffer.second->data + (range.first - buffer.first), size};
+            }
+        }
+        fileHandle->seekg(range.first);
+        char *data = new char[size];
+        fileHandle->read(data, size);
+        buffers[range.first] = std::make_unique<Buffer>();
+        buffers[range.first]->data = data;
+        buffers[range.first]->size = fileHandle->gcount();
+        handleMutex.unlock();
+        std::thread rangeRefresher(FileCache<std::ifstream>::refreshRangesInBackground, this);
+        rangeRefresher.detach();
+        return {buffers[range.first]->data, buffers[range.first]->size};
+    }
+
+    template<class T>
+    void FileCache<T> :: refreshRangesInBackground(FileCache<T> *fileCache) {
+        fileCache->refreshRanges();
+    }
+
+
+    std::ostream& operator<<(std::ostream &, const FileCache<std::ifstream> &);
 
     class Server : public FSProvider {
         private:
-            LRUCache<std::string, FileCache*> openHandles;
-            std::vector<FileCache*> addedCaches;
+            LRUCache<std::string, FileCache<std::ifstream>*> openHandles;
+            std::vector<FileCache<std::ifstream>*> addedCaches;
             int openHandlesSize;
         public:
             Server(int openHandlesSize = DEFAULT_OPEN_HANDLES_SIZE);
@@ -248,7 +334,6 @@ namespace MediaFs {
         }
     };
 
-    extern std::pair<int, std::unique_ptr<Buffer> >* combineRanges(std::pair<int, std::unique_ptr<Buffer> > &, std::pair<int, std::unique_ptr<Buffer> > &);
 };
 
 #endif
