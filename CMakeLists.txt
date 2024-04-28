@@ -23,9 +23,13 @@ enable_testing()
 
 add_executable(RangeTest src/test/RangeTest.cpp src/fsprovider/server/Server.cpp)
 add_executable(LRUCacheTest src/test/LRUCacheTest.cpp src/fsprovider/server/Server.cpp)
+add_executable(MetadataServerTest src/test/MetadataServerTest.cpp src/transfer/server/MetadataServer.cpp src/Utils.cpp)
 target_link_libraries(RangeTest GTest::gtest_main boost_filesystem)
 target_link_libraries(LRUCacheTest GTest::gtest_main boost_filesystem)
+target_link_libraries(MetadataServerTest GTest::gtest_main)
+
 include(GoogleTest)
 gtest_discover_tests(RangeTest)
 gtest_discover_tests(LRUCacheTest)
+gtest_discover_tests(MetadataServerTest)
 

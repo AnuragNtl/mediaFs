@@ -1,0 +1,25 @@
+{
+    "configurations": {
+        "Launch": {
+            "adapter": "vscode-cpptools",
+            "configuration": {
+                "request": "launch",
+                "program": "/home/administrator/mediaFs/build/MediaFs",
+                "args": [
+                    "-g"
+                ],
+                "cwd": "/home/administrator/mediaFs/build/",
+                "externalConsole": true,
+                "MIMode": "gdb"
+            }
+        },
+        "Attach": {
+            "adapter": "vscode-cpptools",
+            "configuration": {
+                "request": "attach",
+                "program": "/home/administrator/mediaFs/build/MediaFs",
+                "MIMode": "gdb"
+            }
+        }
+    }
+}
