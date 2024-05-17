@@ -10,7 +10,7 @@ find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(FUSE "fuse")
 
-add_executable(MediaFs src/MediaFs.cpp src/transfer/server/MetadataServer.cpp src/fsprovider/server/Server.cpp src/Utils.cpp)
+add_executable(MediaFs src/MediaFs.cpp src/transfer/server/MetadataServer.cpp src/fsprovider/server/Server.cpp src/Utils.cpp src/fsprovider/client/Client.cpp)
 
 add_subdirectory(googletest)
 
