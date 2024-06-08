@@ -1,3 +1,4 @@
+#include <string>
 #include <iostream>
 #include <thread>
 #include <numeric>
@@ -38,6 +39,9 @@ namespace MediaFs {
         do {
             const char *output = metadataServer->parser->parse(data.c_str(), data.size(), length);
             //boost::asio::write(*socket, boost::asio::buffer(std::string("abcdef")));
+            std::string len = std::to_string(length);
+            boost::asio::write(*socket, boost::asio::buffer(len, len.size()));
+            boost::asio::write(*socket, boost::asio::buffer(",", 1));
             boost::asio::write(*socket, boost::asio::buffer(output, length));
         } while (socket->is_open());
         if (socket->is_open()) {
@@ -112,4 +116,3 @@ namespace MediaFs {
     }
 
 };
-
