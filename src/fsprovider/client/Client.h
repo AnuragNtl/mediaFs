@@ -13,7 +13,7 @@ namespace MediaFs {
     class Client  : public FSProvider {
         private:
             ios io;
-            tcp::socket socket;
+            tcp::socket *socket;
             tcp::endpoint endpoint;
             // TODO FileCache should also process string keys 
             // which will be filenames, rather than file handles.
