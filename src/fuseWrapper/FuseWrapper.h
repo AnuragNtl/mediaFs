@@ -8,8 +8,11 @@
 #include <vector>
 #include <fuse.h>
 
+#include "../fsprovider/client/Client.h"
+
 namespace MediaFs {
     struct fuse_operations* getRegistered();
+    Client client;
 };
 
 
