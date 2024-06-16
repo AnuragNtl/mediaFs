@@ -6,14 +6,23 @@
 
 #include "FuseWrapper.h"
 
+struct stat getAttr(MediaFs::Attr);
 
 int readDir(const char *path, void *buffer, fuse_fill_dir_t filler,
         off_t offset,
         struct fuse_file_info *fi) {
+    int size;
+    std::vector<MediaFs::Attr> contents = MediaFs::client.readDir(std::string(path));
+
+    for(const auto &item : contents) {
+        const struct stat stBuf = getAttr(item);
+        filler(buffer, item.name.c_str(), &stBuf, 0);
+    }
+
     std::cout << "Path readDir " << path << "\n";
-    filler(buffer, ".", NULL, 0);
+    /*filler(buffer, ".", NULL, 0);
     filler(buffer, "..", NULL, 0);
-    filler(buffer, "s2.mp4", NULL, 0);
+    filler(buffer, "s2.mp4", NULL, 0);*/
     return 0;
 }
 
@@ -39,6 +48,24 @@ int read(const char *path, char *buffer, size_t size, off_t offset, struct fuse_
 
 int open(const char *path, struct fuse_file_info *fi) {
     return 0;
+}
+
+struct stat getAttr(MediaFs::Attr attr) {
+    struct stat st;
+    st.st_uid = getuid();
+    st.st_gid = getgid();
+    st.st_atime = time(NULL);
+    st.st_mtime = time(NULL);
+    st.st_nlink = 1;
+    st.st_size = attr.size;
+    if (attr.supportedType == MediaFs::SupportedType::REGULAR_DIR) {
+        st.st_mode = S_IFDIR | 0755;
+        st.st_nlink = 2;
+    } else {
+        st.st_mode = S_IFREG | 0644;
+        st.st_size = 788609574;
+    }
+    return st;
 }
 
 int getAttr(const char *path, struct stat *st) {

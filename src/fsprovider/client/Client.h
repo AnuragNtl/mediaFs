@@ -23,7 +23,7 @@ namespace MediaFs {
         public:
             Client(int length = 10);
             const char* read(std::string path, int &size, int offset);
-            std::vector<Attr> read(std::string path) const;
+            std::vector<Attr> readDir(std::string path) const;
             Attr getAttr(std::string path) const;
     };
 };

@@ -36,8 +36,16 @@ namespace MediaFs {
         
     }
 
-    const char* FSProvider :: read(std::string path, int &size, int offset) {
+    const char* Client :: read(std::string path, int &size, int offset) {
         return NULL;
+    }
+
+    Attr Client :: getAttr(std::string path) const {
+
+    }
+
+    std::vector<Attr> Client :: readDir(std::string path) const {
+        return {};
     }
 
 
