@@ -33,7 +33,31 @@ namespace MediaFs {
         }
 
         const char *data = boost::asio::buffer_cast<const char *>(recvBuf.data());
+
+        const char *it = data;
+        int ct = 0;
+        char lenData[32];
+        for (const char *it = data; *it != ',' && ct < recvBuf.size(); it++, ct++) {
+            if (ct >= recvBuf.size() - 1) {
+                throw std::exception();
+            }
+            lenData[ct] = *it;
+        }
         
+    }
+
+    std::tuple<int, const char *> Client :: getContent(const char *data, int len) {
+        const char *it = data;
+        int ct = 0;
+        char lenData[32];
+        for (; *it != ',' && ct < len; it++, ct++) {
+            if (ct >= len - 1) {
+                throw std::exception();
+            }
+            lenData[ct] = *it;
+        }
+        lenData[ct] = '\0';
+        return {std::stoi(std::string(lenData)), it + 1};
     }
 
     const char* Client :: read(std::string path, int &size, int offset) {
