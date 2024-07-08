@@ -41,4 +41,3 @@ void sigIntHandler(int signal) {
     std::cout << "sigint " << signal << "\n";
 }
 
-
