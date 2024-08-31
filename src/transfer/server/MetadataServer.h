@@ -8,6 +8,8 @@
 #include <map>
 #include <boost/asio.hpp>
 
+#include "../../Utils.h"
+
 using boost::asio::ip::tcp;
 
 namespace MediaFs {
