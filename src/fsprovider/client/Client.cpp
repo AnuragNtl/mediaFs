@@ -1,6 +1,9 @@
 #include <tuple>
 #include <stdio.h>
 #include <cstring>
+#include <algorithm>
+#include <numeric>
+#include <cmath>
 
 #include "./Client.h"
 #include "../../transfer/server/MetadataServer.h"
@@ -54,6 +57,18 @@ namespace MediaFs {
         return contentReady;
     }
 
+    int ClientBuf :: getTotalLength() {
+
+        std::vector<int> lengths;
+        std::transform(pendingContents.begin(), pendingContents.end(), lengths.begin(), [] (Content content) {
+                return std::get<0>(content);
+                });
+        return std::accumulate(pendingContents.begin(), pendingContents.end(), 0, [] (Content content1, Content content2) {
+                return std::get<0>(content1) + std::get<1>(content2);
+                });
+                
+    }
+
     bool ClientBuf :: add(const char *data, int bufLen) {
         if (isContentReady()) {
             throw std::exception();
@@ -78,6 +93,31 @@ namespace MediaFs {
             contentReady = false;
         }
         return contentReady;
+    }
+
+    void ClientBuf :: addReadyContent() {
+        int len = this->getTotalLength();
+        char *buf = new char[len];
+        Content readyContent = MAKE_CONTENT(len, buf);
+        char *bp = buf;
+        int eLen = expectingLength;
+        for (auto it = pendingContents.begin(); it != pendingContents.end(); it++) {
+            Content content = *it;
+            int curLen = std::min(std::get<0>(content), eLen);
+            const char *curBuf = std::get<1>(content);
+            memcpy(bp, curBuf, curLen);
+            bp += curLen;
+            eLen -= curLen;
+            if (eLen < std::get<0>(content)) {
+                curBuf += eLen;
+                Content updated = MAKE_CONTENT(std::get<0>(content) - eLen, curBuf);
+                content.swap(updated);
+            } else {
+                pendingContents.erase(it);
+            }
+            if (eLen <= 0) break;
+        }
+        readyContents.push(readyContent);
     }
 
     int ClientBuf :: read(char *buf, int len) {
@@ -167,18 +207,3 @@ namespace MediaFs {
     }
 
     const char* Client :: read(std::string path, int &size, int offset) {
-        return NULL;
-    }
-
-    Attr Client :: getAttr(std::string path) const {
-
-    }
-
-    std::vector<Attr> Client :: readDir(std::string path) const {
-        return {};
-    }
-
-
-};
-
-
