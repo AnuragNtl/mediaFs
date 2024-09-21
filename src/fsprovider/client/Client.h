@@ -2,6 +2,7 @@
 #define CLIENT_H
 
 #include <vector>
+#include <queue>
 #include <boost/asio.hpp>
 #include "../FSProvider.h"
 #include "../server/Server.h"
@@ -19,6 +20,7 @@ namespace MediaFs {
     class ClientBuf {
         private:
             std::vector<Content> pendingContents;
+            std::queue<Content> readyContents;
             bool contentReady;
             int expectingLength;
             bool waitingForLength;
@@ -27,12 +29,12 @@ namespace MediaFs {
             virtual ~ClientBuf();
             const char *extractLength(const char *buf, int &bufLen, int &len);
             void cleanBuffers();
+            void addReadyContent();
         public:
             bool add(const char *data, int len);
             int read(char *buf, int len);
             int size();
             int getTotalLength();
-            int getRemainingLength();
             bool isContentReady();
             Content& operator[](int index);
     };
