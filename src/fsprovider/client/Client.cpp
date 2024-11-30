@@ -11,9 +11,7 @@
 namespace MediaFs {
 
     Client :: Client(int length) : openHandles(LRUCache<std::string, FileCache<std::string>*>(length)) {
-        socket = new tcp::socket(io);
         endpoint = tcp::endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 8080);
-        socket->connect(endpoint);
     }
 
     const char* ClientBuf :: extractLength(const char *buf, int &bufLen, int &len) {
@@ -44,7 +42,7 @@ namespace MediaFs {
         return buf;
     }
 
-    ClientBuf :: ClientBuf() : waitingForLength(true) { }
+    ClientBuf :: ClientBuf() : waitingForLength(true), contentReady(false), totalLength(0), expectingLength(0) { }
 
     void ClientBuf :: cleanBuffers() {
         for (const auto &content : pendingContents) {
@@ -63,10 +61,13 @@ namespace MediaFs {
         std::transform(pendingContents.begin(), pendingContents.end(), lengths.begin(), [] (Content content) {
                 return std::get<0>(content);
                 });
-        return std::accumulate(pendingContents.begin(), pendingContents.end(), 0, [] (Content content1, Content content2) {
-                return std::get<0>(content1) + std::get<1>(content2);
+        return std::accumulate(lengths.begin(), lengths.end(), 0, [] (int len1, int len2) {  
+                return len1 + len2;
                 });
-                
+    }
+
+    int ClientBuf :: size() {
+        return readyContents.size();
     }
 
     bool ClientBuf :: add(const char *data, int bufLen) {
@@ -91,6 +92,7 @@ namespace MediaFs {
             waitingForLength = true;
         } else {
             contentReady = false;
+            addReadyContent();
         }
         return contentReady;
     }
@@ -120,44 +122,76 @@ namespace MediaFs {
         readyContents.push(readyContent);
     }
 
-    int ClientBuf :: read(char *buf, int len) {
-        int ct = 0;
-        std::for_each(pendingContents.begin(), pendingContents.end(), [&ct, &buf] (Content content) {
-                int bufSize = std::get<0>(content);
-                memcpy(buf, std::get<1>(content), bufSize);
-                buf = buf + bufSize;
-        });
+    Content& ClientBuf :: operator[](int index) {
+        return pendingContents[index];
     }
 
-    void Client :: sendRequest(std::string payload) {
-        // TODO
-        if (socket == NULL || !socket->is_open()) {
-            if (!socket->is_open()) {
-                delete socket;
+    int ClientBuf :: read(char *buf, int len) {
+        int ct = 0;
+        while (ct < len) {
+            auto item = readyContents.front();
+            readyContents.pop();
+            int bufSize = std::min(std::get<0>(item), len - ct);
+            const char *content = std::get<1>(item);
+            if (bufSize < std::get<0>(item)) {
+                Content updated = MAKE_CONTENT(bufSize, content + (len - ct));
+                item.swap(updated);
             }
-            socket = new tcp::socket(io);
-            socket->connect(endpoint);
+            memcpy(buf, content, bufSize);
+            buf += bufSize;
+            ct += bufSize;
         }
+        return ct;
+    }
+
+    void Client :: sendRequest(tcp::socket &socket, std::string payload) {
+        // TODO
+        socket.connect(endpoint);
         boost::system::error_code error;
-        boost::asio::write(*socket, boost::asio::buffer(payload), error);
+        boost::asio::write(socket, boost::asio::buffer(payload), error);
 
         if (error) {
             throw std::exception();
         }
-        boost::asio::streambuf recvBuf;
-
-        boost::asio::read(*socket, recvBuf, boost::asio::transfer_all(), error);
-
-        if (error && error != boost::asio::error::eof) {
-            throw std::exception();
-        }
-
-        const char *data = boost::asio::buffer_cast<const char *>(recvBuf.data());
-
-        std::tuple<int, const char *> contentAndLen = getContent(data, recvBuf.size());
     }
 
-    std::pair<Content, Content> Client :: getContent(const char *data, int len) {
+    void Client :: readUntilReady(ClientBuf &buf, tcp::socket &socket) {
+        do {
+            boost::asio::streambuf recvBuf;
+            boost::system::error_code error;
+
+            boost::asio::read(socket, recvBuf, boost::asio::transfer_all(), error);
+
+            if (error && error != boost::asio::error::eof) {
+                throw std::exception();
+            }
+
+            const char *data = boost::asio::buffer_cast<const char *>(recvBuf.data());
+
+            buf.add(data, recvBuf.size());
+        } while (!buf.isContentReady());
+        
+    }
+
+    ClientBuf :: ~ClientBuf() {
+        for (const auto &item : pendingContents) {
+            delete[] std::get<1>(item);
+        }
+        while (!readyContents.empty()) {
+            delete[] std::get<1>(readyContents.front());
+            readyContents.pop();
+        }
+    }
+
+    std::vector<Attr> Client :: readDir(std::string path) const {
+        return {};
+    }
+
+    Attr Client :: getAttr(std::string path) const {
+        return {};
+    }
+
+    Content Client :: getContent(const char *data, int len) {
         /*const char *it = data;
         int ct = 0;
         char lenData[32];
@@ -207,3 +241,14 @@ namespace MediaFs {
     }
 
     const char* Client :: read(std::string path, int &size, int offset) {
+        ClientBuf buf;
+        tcp::socket socket(io);
+            std::vector<std::string> params = {path, std::to_string(size), std::to_string(offset)};
+        sendRequest(socket, 
+                MediaPacketParser::generate('r', params));
+        readUntilReady(buf, socket);
+        char *data = new char[size];
+        size = buf.read(data, size);
+        return data;
+    }
+}
