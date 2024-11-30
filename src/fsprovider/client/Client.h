@@ -25,8 +25,6 @@ namespace MediaFs {
             int expectingLength;
             bool waitingForLength;
             int totalLength;
-            ClientBuf();
-            virtual ~ClientBuf();
             const char *extractLength(const char *buf, int &bufLen, int &len);
             void cleanBuffers();
             void addReadyContent();
@@ -35,6 +33,8 @@ namespace MediaFs {
             int read(char *buf, int len);
             int size();
             int getTotalLength();
+            ClientBuf();
+            virtual ~ClientBuf();
             bool isContentReady();
             Content& operator[](int index);
     };
@@ -42,14 +42,11 @@ namespace MediaFs {
     class Client  : public FSProvider {
         private:
             ios io;
-            tcp::socket *socket;
             tcp::endpoint endpoint;
-            // TODO FileCache should also process string keys 
-            // which will be filenames, rather than file handles.
-            // File names because the client would only know about them.
             LRUCache<std::string, FileCache<std::string>*> openHandles;
-            ClientBuf clientBuf;
-            void sendRequest(std::string);
+            void sendRequest(tcp::socket &, std::string);
+            const char *readResponse(int &);
+            void readUntilReady(ClientBuf &, tcp::socket &);
         public:
             Client(int length = 10);
             const char* read(std::string path, int &size, int offset);
@@ -59,5 +56,4 @@ namespace MediaFs {
     };
 };
 #endif
-
 

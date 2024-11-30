@@ -111,8 +111,9 @@ namespace MediaFs {
         std::vector<std::string> params{std::string(idContents, 1)};
         params.insert(params.end(), options.begin(), options.end());
         return std::accumulate(params.begin(), params.end(), std::string(), [] (const std::string s1, const std::string s2) {
-                return s1 + ' ' + s2;
-                });
+                if (s1.empty() || s2.empty()) return s1 + s2;
+                return s1 + " " + s2;
+                }) + "\n";
     }
 
 };
