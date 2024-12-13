@@ -128,7 +128,7 @@ namespace MediaFs {
 
     int ClientBuf :: read(char *buf, int len) {
         int ct = 0;
-        while (ct < len) {
+        while (ct < len && !readyContents.empty()) {
             auto item = readyContents.front();
             readyContents.pop();
             int bufSize = std::min(std::get<0>(item), len - ct);
