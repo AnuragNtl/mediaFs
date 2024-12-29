@@ -27,7 +27,7 @@ namespace MediaFs {
             if (i >= 32) {
                 throw std::exception();
             }
-            if ((buf[i] == LEN_SEPARATOR[0]) && (memcmp(buf, LEN_SEPARATOR, strlen(LEN_SEPARATOR))) == 0) {
+            if ((buf[i] == LEN_SEPARATOR[0]) && (memcmp(buf + i, LEN_SEPARATOR, strlen(LEN_SEPARATOR))) == 0) {
                 buf = buf + i + sepLen;
                 bufLen = bufLen - (i + sepLen);
                 break;
@@ -45,9 +45,6 @@ namespace MediaFs {
     ClientBuf :: ClientBuf() : waitingForLength(true), contentReady(false), totalLength(0), expectingLength(0) { }
 
     void ClientBuf :: cleanBuffers() {
-        for (const auto &content : pendingContents) {
-            delete[] std::get<1>(content);
-        }
         pendingContents.clear();
     }
 
@@ -57,7 +54,7 @@ namespace MediaFs {
 
     int ClientBuf :: getTotalLength() {
 
-        std::vector<int> lengths;
+        std::vector<int> lengths(pendingContents.size());
         std::transform(pendingContents.begin(), pendingContents.end(), lengths.begin(), [] (Content content) {
                 return std::get<0>(content);
                 });
@@ -74,9 +71,13 @@ namespace MediaFs {
         if (isContentReady()) {
             throw std::exception();
         }
+        allContents.push_back(data);
         if (pendingContents.size() == 0) {
             int len = 0;
             const char *buf = extractLength(data, bufLen, len);
+            ClientBuf &&ss = std::move(*this);
+            ss.pendingContents = {};
+
             if (buf == NULL) {
                 pendingContents.push_back(MAKE_CONTENT(bufLen, data));
                 return false;
@@ -90,9 +91,10 @@ namespace MediaFs {
         if (totalLength + bufLen >= expectingLength) {
             contentReady = true;
             waitingForLength = true;
-        } else {
-            contentReady = false;
             addReadyContent();
+        } else {
+            totalLength += bufLen;
+            contentReady = false;
         }
         return contentReady;
     }
@@ -103,13 +105,12 @@ namespace MediaFs {
         Content readyContent = MAKE_CONTENT(len, buf);
         char *bp = buf;
         int eLen = expectingLength;
-        for (auto it = pendingContents.begin(); it != pendingContents.end(); it++) {
+        for (auto it = pendingContents.begin(); it != pendingContents.end() && eLen > 0; it++) {
             Content content = *it;
             int curLen = std::min(std::get<0>(content), eLen);
             const char *curBuf = std::get<1>(content);
             memcpy(bp, curBuf, curLen);
             bp += curLen;
-            eLen -= curLen;
             if (eLen < std::get<0>(content)) {
                 curBuf += eLen;
                 Content updated = MAKE_CONTENT(std::get<0>(content) - eLen, curBuf);
@@ -117,7 +118,7 @@ namespace MediaFs {
             } else {
                 pendingContents.erase(it);
             }
-            if (eLen <= 0) break;
+            eLen -= curLen;
         }
         readyContents.push(readyContent);
     }
@@ -174,12 +175,8 @@ namespace MediaFs {
     }
 
     ClientBuf :: ~ClientBuf() {
-        for (const auto &item : pendingContents) {
-            delete[] std::get<1>(item);
-        }
-        while (!readyContents.empty()) {
-            delete[] std::get<1>(readyContents.front());
-            readyContents.pop();
+        for (const auto &item : allContents) {
+            delete[] item;
         }
     }
 

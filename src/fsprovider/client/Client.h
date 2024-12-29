@@ -21,6 +21,7 @@ namespace MediaFs {
         private:
             std::vector<Content> pendingContents;
             std::queue<Content> readyContents;
+            std::vector<const char *> allContents;
             bool contentReady;
             int expectingLength;
             bool waitingForLength;
