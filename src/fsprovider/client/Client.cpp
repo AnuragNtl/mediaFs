@@ -42,7 +42,7 @@ namespace MediaFs {
         return buf;
     }
 
-    ClientBuf :: ClientBuf() : waitingForLength(true), contentReady(false), totalLength(0), expectingLength(0) { }
+    ClientBuf :: ClientBuf() : waitingForLength(true), contentReady(false), totalLength(0), expectingLength(0), readyLength(0) { }
 
     void ClientBuf :: cleanBuffers() {
         pendingContents.clear();
@@ -52,8 +52,14 @@ namespace MediaFs {
         return contentReady;
     }
 
-    int ClientBuf :: getTotalLength() {
+    int ClientBuf :: getTotalPendingLength() {
+        pendingContentsMutex.lock();
+        int len = this->calculateTotalLength();
+        pendingContentsMutex.unlock();
+        return len;
+    }
 
+    int ClientBuf :: calculateTotalLength() {
         std::vector<int> lengths(pendingContents.size());
         std::transform(pendingContents.begin(), pendingContents.end(), lengths.begin(), [] (Content content) {
                 return std::get<0>(content);
@@ -68,18 +74,16 @@ namespace MediaFs {
     }
 
     bool ClientBuf :: add(const char *data, int bufLen) {
-        if (isContentReady()) {
-            throw std::exception();
-        }
+        pendingContentsMutex.lock();
         allContents.push_back(data);
-        if (pendingContents.size() == 0) {
+        if (waitingForLength) {
             int len = 0;
             const char *buf = extractLength(data, bufLen, len);
             ClientBuf &&ss = std::move(*this);
-            ss.pendingContents = {};
 
             if (buf == NULL) {
                 pendingContents.push_back(MAKE_CONTENT(bufLen, data));
+                pendingContentsMutex.unlock();
                 return false;
             }
             data = buf;
@@ -92,15 +96,19 @@ namespace MediaFs {
             contentReady = true;
             waitingForLength = true;
             addReadyContent();
+            totalLength = 0;
+            readyLength += expectingLength;
+            expectingLength = 0;
         } else {
-            totalLength += bufLen;
             contentReady = false;
+            totalLength += bufLen;
         }
+        pendingContentsMutex.unlock();
         return contentReady;
     }
 
     void ClientBuf :: addReadyContent() {
-        int len = this->getTotalLength();
+        int len = this->calculateTotalLength();
         char *buf = new char[len];
         Content readyContent = MAKE_CONTENT(len, buf);
         char *bp = buf;
@@ -120,7 +128,9 @@ namespace MediaFs {
             }
             eLen -= curLen;
         }
+        readyContentsMutex.lock();
         readyContents.push(readyContent);
+        readyContentsMutex.unlock();
     }
 
     Content& ClientBuf :: operator[](int index) {
@@ -128,6 +138,7 @@ namespace MediaFs {
     }
 
     int ClientBuf :: read(char *buf, int len) {
+        readyContentsMutex.lock();
         int ct = 0;
         while (ct < len && !readyContents.empty()) {
             auto item = readyContents.front();
@@ -142,7 +153,16 @@ namespace MediaFs {
             buf += bufSize;
             ct += bufSize;
         }
+        if (readyContents.empty()) {
+            this->contentReady = false;
+        }
+        readyContentsMutex.unlock();
+        readyLength -= ct;
         return ct;
+    }
+
+    int ClientBuf :: getReadyLength() const {
+        return this->readyLength;
     }
 
     void Client :: sendRequest(tcp::socket &socket, std::string payload) {
@@ -171,7 +191,6 @@ namespace MediaFs {
 
             buf.add(data, recvBuf.size());
         } while (!buf.isContentReady());
-        
     }
 
     ClientBuf :: ~ClientBuf() {

@@ -22,22 +22,26 @@ namespace MediaFs {
             std::vector<Content> pendingContents;
             std::queue<Content> readyContents;
             std::vector<const char *> allContents;
+            std::mutex pendingContentsMutex, readyContentsMutex;
             bool contentReady;
             int expectingLength;
             bool waitingForLength;
             int totalLength;
+            int readyLength;
             const char *extractLength(const char *buf, int &bufLen, int &len);
             void cleanBuffers();
             void addReadyContent();
+            int calculateTotalLength();
         public:
             bool add(const char *data, int len);
             int read(char *buf, int len);
             int size();
-            int getTotalLength();
+            int getTotalPendingLength();
             ClientBuf();
             virtual ~ClientBuf();
             bool isContentReady();
             Content& operator[](int index);
+            int getReadyLength() const;
     };
 
     class Client  : public FSProvider {
