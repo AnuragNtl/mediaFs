@@ -212,6 +212,11 @@ namespace MediaFs {
 
     extern std::pair<int, std::unique_ptr<Buffer> >* combineRanges(std::pair<int, std::unique_ptr<Buffer> > &, std::pair<int, std::unique_ptr<Buffer> > &);
 
+    class FileHandle {
+        public:
+            virtual int read(char *buf, int start, int size) = 0;
+    };
+
     template<class T>
     struct FileCache {
         private:
