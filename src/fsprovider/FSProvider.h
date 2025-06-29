@@ -23,8 +23,8 @@ namespace MediaFs {
     class FSProvider {
         public:
             virtual const char* read(std::string path, int &size, int offset) = 0;
-            virtual std::vector<Attr> readDir(std::string path) const = 0;
-            virtual Attr getAttr(std::string path) const = 0;
+            virtual std::vector<Attr> readDir(std::string path) = 0;
+            virtual Attr getAttr(std::string path) = 0;
             virtual ~FSProvider() { }
     };
 

@@ -10,7 +10,7 @@ find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(FUSE "fuse")
 
-add_executable(MediaFs src/MediaFs.cpp src/transfer/server/MetadataServer.cpp src/fsprovider/server/Server.cpp src/Utils.cpp src/fsprovider/client/Client.cpp)
+add_executable(MediaFs src/MediaFs.cpp src/transfer/server/MetadataServer.cpp src/fsprovider/server/Server.cpp src/fsprovider/filecache/FileCache.cpp src/Utils.cpp src/fsprovider/client/Client.cpp src/fuseWrapper/FuseWrapper.cpp)
 
 add_subdirectory(googletest)
 
@@ -21,10 +21,10 @@ add_definitions(${FUSE_CFLAGS} ${FUSE_CFLAGS_OTHER})
 
 enable_testing()
 
-add_executable(RangeTest src/test/RangeTest.cpp src/fsprovider/server/Server.cpp)
-add_executable(LRUCacheTest src/test/LRUCacheTest.cpp src/fsprovider/server/Server.cpp)
+add_executable(RangeTest src/test/RangeTest.cpp src/fsprovider/filecache/FileCache.cpp)
+add_executable(LRUCacheTest src/test/LRUCacheTest.cpp src/fsprovider/filecache/FileCache.cpp)
 add_executable(MetadataServerTest src/test/MetadataServerTest.cpp src/transfer/server/MetadataServer.cpp src/Utils.cpp)
-add_executable(ClientBufTest src/fsprovider/client/Client.cpp src/test/ClientBufTest.cpp src/transfer/server/MetadataServer.cpp src/Utils.cpp)
+add_executable(ClientBufTest src/fsprovider/client/Client.cpp src/test/ClientBufTest.cpp src/transfer/server/MetadataServer.cpp src/fsprovider/filecache/FileCache.cpp src/Utils.cpp)
 target_link_libraries(RangeTest GTest::gtest_main boost_filesystem)
 target_link_libraries(LRUCacheTest GTest::gtest_main boost_filesystem)
 target_link_libraries(MetadataServerTest GTest::gtest_main)

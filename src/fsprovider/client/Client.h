@@ -48,16 +48,28 @@ namespace MediaFs {
         private:
             ios io;
             tcp::endpoint endpoint;
-            LRUCache<std::string, FileCache<std::string>*> openHandles;
+            LRUCache<std::string, FileCache*> openHandles;
             void sendRequest(tcp::socket &, std::string);
             const char *readResponse(int &);
             void readUntilReady(ClientBuf &, tcp::socket &);
+            std::vector<FileCache*> addedCaches;
+            Attr parseAttr(std::string data) const;
         public:
             Client(int length = 10);
+            ~Client();
             const char* read(std::string path, int &size, int offset);
-            std::vector<Attr> readDir(std::string path) const;
-            std::tuple<int, const char*> getContent(const char *, int len);
-            Attr getAttr(std::string path) const;
+            std::vector<Attr> readDir(std::string path);
+            Attr getAttr(std::string path);
+            friend class ClientFileHandle;
+    };
+
+    class ClientFileHandle : public FileHandle {
+        private:
+            Client &client;
+            std::string path;
+        public:
+            ClientFileHandle(Client &client, std::string path);
+            int read(char *buf, int start, int size);
     };
 };
 #endif
