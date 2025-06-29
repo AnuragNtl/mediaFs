@@ -12,9 +12,10 @@
 
 namespace MediaFs {
     struct fuse_operations* getRegistered();
-    Client client;
+    extern Client *client;
 };
 
+extern void setAttr(MediaFs::Attr, struct stat*);
 
 #endif
 

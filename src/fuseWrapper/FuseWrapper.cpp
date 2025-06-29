@@ -6,16 +6,15 @@
 
 #include "FuseWrapper.h"
 
-struct stat getAttr(MediaFs::Attr);
-
 int readDir(const char *path, void *buffer, fuse_fill_dir_t filler,
         off_t offset,
         struct fuse_file_info *fi) {
     int size;
-    std::vector<MediaFs::Attr> contents = MediaFs::client.readDir(std::string(path));
+    std::vector<MediaFs::Attr> contents = MediaFs::client->readDir(std::string(path));
 
     for(const auto &item : contents) {
-        const struct stat stBuf = getAttr(item);
+        struct stat stBuf;
+        setAttr(item, &stBuf);
         filler(buffer, item.name.c_str(), &stBuf, 0);
     }
 
@@ -28,6 +27,10 @@ int readDir(const char *path, void *buffer, fuse_fill_dir_t filler,
 
 int read(const char *path, char *buffer, size_t size, off_t offset, struct fuse_file_info *fi) {
 
+    int sz = size;
+    MediaFs::client->read(path, sz, offset);
+    return sz;
+    ////////
     std::cout << "Path read " << path << "\n";
     if (offset > 788609574) return -1;
     std::ifstream in("/home/administrator/My Darling Clementine (1946)/My.Darling.Clementine.1946.720p.BluRay.x264.YIFY.mp4", std::ios::binary | std::ios::in);
@@ -50,27 +53,31 @@ int open(const char *path, struct fuse_file_info *fi) {
     return 0;
 }
 
-struct stat getAttr(MediaFs::Attr attr) {
-    struct stat st;
-    st.st_uid = getuid();
-    st.st_gid = getgid();
-    st.st_atime = time(NULL);
-    st.st_mtime = time(NULL);
-    st.st_nlink = 1;
-    st.st_size = attr.size;
+void setAttr(MediaFs::Attr attr, struct stat *st) {
+    st->st_uid = getuid();
+    st->st_gid = getgid();
+    st->st_atime = time(NULL);
+    st->st_mtime = time(NULL);
+    st->st_nlink = 1;
+    st->st_size = attr.size;
     if (attr.supportedType == MediaFs::SupportedType::REGULAR_DIR) {
-        st.st_mode = S_IFDIR | 0755;
-        st.st_nlink = 2;
+        st->st_mode = S_IFDIR | 0755;
+        st->st_nlink = 2;
     } else {
-        st.st_mode = S_IFREG | 0644;
-        st.st_size = 788609574;
+        st->st_mode = S_IFREG | 0644;
     }
-    return st;
 }
 
 int getAttr(const char *path, struct stat *st) {
 
     std::cout << "Path getAttr " << path << "\n";
+    try {
+        setAttr(MediaFs::client->getAttr(path), st);
+    } catch (std::exception &e) {
+        return -1;
+    }
+    return 0;
+
     st->st_uid = geteuid();
     st->st_gid = getgid();
     st->st_atime = time(NULL);
@@ -94,7 +101,10 @@ int ioctlHandler(const char *, int, void *, struct fuse_file_info *info, unsigne
 
 namespace MediaFs {
 
+    Client *client = NULL;
+
     struct fuse_operations* getRegistered() {
+        MediaFs::client = new MediaFs::Client();
         struct fuse_operations *o = new struct fuse_operations;
         o->readdir = readDir;
         o->ioctl = ioctlHandler;

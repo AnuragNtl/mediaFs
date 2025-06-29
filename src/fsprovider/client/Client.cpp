@@ -10,8 +10,8 @@
 
 namespace MediaFs {
 
-    Client :: Client(int length) : openHandles(LRUCache<std::string, FileCache<std::string>*>(length)) {
-        endpoint = tcp::endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 8080);
+    Client :: Client(int length) : openHandles(LRUCache<std::string, FileCache*>(length)) {
+        endpoint = tcp::endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 8086);
     }
 
     const char* ClientBuf :: extractLength(const char *buf, int &bufLen, int &len) {
@@ -19,6 +19,9 @@ namespace MediaFs {
         int i = 0;
         char prevData[32];
         int ct = 0;
+        if (buf[0] == '\0') {
+            throw std::exception();
+        }
         for (const auto &content : pendingContents) {
             memcpy(prevData + ct, std::get<1>(content), std::get<0>(content));
             ct += std::get<0>(content);
@@ -27,6 +30,7 @@ namespace MediaFs {
             if (i >= 32) {
                 throw std::exception();
             }
+
             if ((buf[i] == LEN_SEPARATOR[0]) && (memcmp(buf + i, LEN_SEPARATOR, strlen(LEN_SEPARATOR))) == 0) {
                 buf = buf + i + sepLen;
                 bufLen = bufLen - (i + sepLen);
@@ -138,6 +142,7 @@ namespace MediaFs {
     }
 
     int ClientBuf :: read(char *buf, int len) {
+        std::cout << "Client read\n";
         readyContentsMutex.lock();
         int ct = 0;
         while (ct < len && !readyContents.empty()) {
@@ -190,7 +195,7 @@ namespace MediaFs {
             const char *data = boost::asio::buffer_cast<const char *>(recvBuf.data());
 
             buf.add(data, recvBuf.size());
-        } while (!buf.isContentReady());
+        } while (!buf.isContentReady() && socket.is_open());
     }
 
     ClientBuf :: ~ClientBuf() {
@@ -199,72 +204,70 @@ namespace MediaFs {
         }
     }
 
-    std::vector<Attr> Client :: readDir(std::string path) const {
-        return {};
+    std::vector<Attr> Client :: readDir(std::string path) {
+        tcp::socket socket(io);
+        std::vector<std::string> params = {path};
+        sendRequest(socket, MediaPacketParser::generate('d', params));
+        ClientBuf buf;
+        readUntilReady(buf, socket);
+        char *data = new char[buf.size()];
+        buf.read(data, buf.size());
+        std::vector<Attr> attrs;
+        for (const auto line : MediaFs::split(data, "\n")) {
+            attrs.push_back(parseAttr(line));
+        }
+        return attrs;
     }
 
-    Attr Client :: getAttr(std::string path) const {
-        return {};
+    Attr Client :: getAttr(std::string path) {
+        tcp::socket socket(io);
+        std::vector<std::string> params = {path};
+        sendRequest(socket, MediaPacketParser::generate('g', params));
+        ClientBuf buf;
+        readUntilReady(buf, socket);
+        char *data = new char[buf.size()];
+        buf.read(data, buf.size());
+        auto attr = parseAttr(data);
+        return attr;
     }
 
-    Content Client :: getContent(const char *data, int len) {
-        /*const char *it = data;
-        int ct = 0;
-        char lenData[32];
-        bool lenRead = false;
-        auto &pendingContents = clientBuf.pendingContents;
-        pendingContents.push_back(std::make_tuple(len, data));
-        clientBuf.length += len;
-        for(const Content &pendingContent : pendingContents) {
-            int len = std::get<0>(pendingContent);
-            const char *pendingData = std::get<1>(pendingContent);
-            if (pendingContent
-        }
-        for (it = std::get<0>(pendingContent); it != 0; 
+    Attr Client :: parseAttr(std::string data) const {
+        Attr attr;
+        std::vector<std::string> contents = MediaFs::split(data);
+        attr.name = contents[0];
+        attr.supportedType = (SupportedType)std::stoi(contents[1]);
+        attr.size = std::stoi(contents[2]);
+        return attr;
+    }
 
-        if (std::get<0>(pendingContent) > 0) {
-            int previousLength = std::get<0>(pendingContent);
-            int i1 = 0;
-            const char *prevData = 
-            it = std::get<1>(pendingContent);
-            bool readingLen = false;
-            for (it = std::get<1>(pendingContent); i1 < previousLength && *it != ','; i1++, it++) {
-                if (readingLen) {
-                    lenData[i1] = pendingContent<1>
-                }
-                if (*it == ',') {
-                    readingLen = true;
-                    continue;
-                }
-            }
+    Client :: ~Client() {
+        for (FileCache *fileCache : addedCaches) {
+            delete fileCache;
         }
+    }
 
-        for (; *it != ',' && ct < len; it++, ct++) {
-            if (ct >= len - 1) {
-                delete[] std::get<1>(pendingContent);
-                pendingContent = std::make_tuple(0, static_cast<const char*>(NULL));
-            }
-            lenData[ct] = *it;
-        }
-        if (++ct < len) {
-            char *pendingData = new char[len - ct];
-            memcpy(pendingData, &data[ct], len - ct);
-            pendingContent = std::make_tuple(len - ct, pendingData);
+    ClientFileHandle :: ClientFileHandle(Client &client, std::string path) : client(client), path(path) { }
 
-        }
-        lenData[ct] = '\0';
-        return {std::stoi(std::string(lenData)), it + 1};*/
+    int ClientFileHandle :: read(char *data, int offset, int size) {
+        ClientBuf buf;
+        tcp::socket socket(client.io);
+            std::vector<std::string> params = {path, std::to_string(size), std::to_string(offset)};
+        client.sendRequest(socket, 
+                MediaPacketParser::generate('r', params));
+        client.readUntilReady(buf, socket);
+        return buf.read(data, size);
     }
 
     const char* Client :: read(std::string path, int &size, int offset) {
-        ClientBuf buf;
-        tcp::socket socket(io);
-            std::vector<std::string> params = {path, std::to_string(size), std::to_string(offset)};
-        sendRequest(socket, 
-                MediaPacketParser::generate('r', params));
-        readUntilReady(buf, socket);
-        char *data = new char[size];
-        size = buf.read(data, size);
-        return data;
+        if (!openHandles.has(path)) {
+            FileCache *fileCache = new FileCache(std::unique_ptr<FileHandle>(new ClientFileHandle(*this, path)));
+            openHandles.add(path, fileCache);
+            addedCaches.push_back(fileCache);
+        }
+
+        FileCache &handle = *openHandles[path];
+        auto data = handle[std::make_pair(offset, offset + size)];
+        size = std::get<1>(data);
+        return std::get<0>(data);
     }
 }

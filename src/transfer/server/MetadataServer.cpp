@@ -2,6 +2,7 @@
 #include <iostream>
 #include <thread>
 #include <numeric>
+#include <fstream>
 
 #include "./MetadataServer.h"
 #include "../../Utils.h"
@@ -30,25 +31,41 @@ namespace MediaFs {
     }
 
     void MetadataServer :: handleClient(tcp::socket *socket, MetadataServer *metadataServer) {
-
-        std::cout << "__\n";
-        boost::asio::streambuf buf;
-        boost::asio::read_until(*socket, buf, "\n");
-        std::string data = boost::asio::buffer_cast<const char*>(buf.data());
-        int length;
+        char *errOutput = new char[1];
+        errOutput[0] = '\0';
         do {
-            const char *output = metadataServer->parser->parse(data.c_str(), data.size(), length);
+            std::cout << "__\n";
+            boost::asio::streambuf buf;
+            boost::asio::read_until(*socket, buf, "\n");
+            std::string data = boost::asio::buffer_cast<const char*>(buf.data());
+            int length;
+            const char *output = NULL;
+            try {
+                output = metadataServer->parser->parse(data.c_str(), data.size(), length);
+            } catch(std::exception& e) {
+                output = NULL;
+            } catch (boost::exception &e) {
+                output = NULL;
+            }
             //boost::asio::write(*socket, boost::asio::buffer(std::string("abcdef")));
-            std::string len = std::to_string(length);
-            boost::asio::write(*socket, boost::asio::buffer(len, len.size()));
-            boost::asio::write(*socket, boost::asio::buffer(LEN_SEPARATOR, 1));
-            boost::asio::write(*socket, boost::asio::buffer(output, length));
+            if (output == NULL) {
+                length = 1;
+                output = errOutput;
+                boost::asio::write(*socket, boost::asio::buffer(output, 1));
+                break;
+            } else {
+                std::string len = std::to_string(length);
+                boost::asio::write(*socket, boost::asio::buffer(len, len.size()));
+                boost::asio::write(*socket, boost::asio::buffer(LEN_SEPARATOR, 1));
+                boost::asio::write(*socket, boost::asio::buffer(output, length));
+            }
+            std::cout << data << "\n";
+            delete[] output;
         } while (socket->is_open());
         if (socket->is_open()) {
             socket->close();
         }
 
-        std::cout << data << "\n";
         delete socket;
     }
 
@@ -90,7 +107,7 @@ namespace MediaFs {
         }
 
         std::string content(data + 1, length - 1);
-        std::cout << "content " << content << "\n";
+        std::cout << data[0] << " content " << content << "\n";
         std::vector<std::string> params = MediaFs::split(content, " ");
         auto handler = functionMap.find(data[0]);
         if (handler != functionMap.end()) {
@@ -108,9 +125,7 @@ namespace MediaFs {
 
     std::string MediaPacketParser :: generate(const char id, std::vector<std::string> options) {
         const char *idContents = &id;
-        std::vector<std::string> params{std::string(idContents, 1)};
-        params.insert(params.end(), options.begin(), options.end());
-        return std::accumulate(params.begin(), params.end(), std::string(), [] (const std::string s1, const std::string s2) {
+        return std::string(idContents, 1) + std::accumulate(options.begin(), options.end(), std::string(), [] (const std::string s1, const std::string s2) {
                 if (s1.empty() || s2.empty()) return s1 + s2;
                 return s1 + " " + s2;
                 }) + "\n";

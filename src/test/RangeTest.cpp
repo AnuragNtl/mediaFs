@@ -4,7 +4,7 @@
 #include <tuple>
 #include <utility>
 #include <fstream>
-#include "../fsprovider/server/Server.h"
+#include "../fsprovider/filecache/FileCache.h"
 
 struct RangeParam {
     char *firstBuffer, *secondBuffer;
@@ -42,12 +42,12 @@ TEST_P(RangeTest, Range) {
 
 class FileCacheFixture : public testing::Test {
     public:
-        MediaFs::FileCache<std::ifstream> *fileCache;
+        MediaFs::FileCache *fileCache;
         void SetUp();
 };
 
 void FileCacheFixture :: SetUp() {
-    fileCache = new MediaFs::FileCache<std::ifstream>(std::make_unique<std::ifstream>());
+    fileCache = new MediaFs::FileCache(std::unique_ptr<MediaFs::FileHandle>(new MediaFs::IfstreamFileHandle(std::ifstream())));
     fileCache->buffers[0] = std::unique_ptr<MediaFs::Buffer>(new MediaFs::Buffer("1234", 4));
     fileCache->buffers[4] = std::unique_ptr<MediaFs::Buffer>(new MediaFs::Buffer("5678", 4));
     fileCache->buffers[8] = std::unique_ptr<MediaFs::Buffer>(new MediaFs::Buffer("5678", 4));
