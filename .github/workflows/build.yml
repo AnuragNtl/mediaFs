@@ -19,7 +19,7 @@ jobs:
     
     - name: Install fuse
       run: |
-        sudo apt update && sudo apt -y install fuse libfuse-dev
+        sudo apt update && sudo apt -y install fuse libfuse-dev libboost-all-dev
 
     - name: Update submodules
       run:  git submodule update --init --recursive
