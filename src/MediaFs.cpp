@@ -100,7 +100,7 @@ std::map<std::string, std::string> getOptions(int argc, char *argv[]) {
 }
 
 void printHelp() {
-    std::cout << "usage: sshfs --t=client|server --d=PATH\n";
+    std::cout << "usage: MediaFs --t=client|server --d=PATH\n";
     std::cout << "\t-t type=client|server\t\t act as mediafs client or server\n";
     std::cout << "\t-d directory=PATH the mount point for client OR the source directory for server\n";
 }
