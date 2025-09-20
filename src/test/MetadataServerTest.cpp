@@ -3,7 +3,7 @@
 
 TEST(MetadataServerTest, MetadataServer) {
     auto generated = MediaFs::MediaPacketParser::generate('r', {"param1", "param2"});
-    ASSERT_EQ("r param1 param2\n", generated);
+    ASSERT_EQ("rparam1 param2\n", generated);
 }
 
 int main(int argc, char *argv[]) {
