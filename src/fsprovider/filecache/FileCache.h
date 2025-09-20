@@ -106,12 +106,14 @@ namespace MediaFs {
         }
         globalMutex.lock();
         auto node = location[index];
-        if (node == head) {
-            head = node->next;
+        if (head != tail) {
+            if (node == head) {
+                head = node->next;
+            }
+            node->detach();
+            node->append(tail);
+            tail = node;
         }
-        node->detach();
-        node->append(tail);
-        tail = node;
         globalMutex.unlock();
         return node->value;
     }
@@ -230,6 +232,7 @@ namespace MediaFs {
             std::unique_ptr<FileHandle> fileHandle;
             FileCache(std::unique_ptr<FileHandle> &&);
             void refreshRanges();
+            void refreshRangesAsync();
             std::tuple<const char*, int> operator[](std::pair<int, int>);
     };
 

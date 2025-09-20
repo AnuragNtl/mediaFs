@@ -12,6 +12,7 @@ namespace MediaFs {
     IfstreamFileHandle :: IfstreamFileHandle(std::ifstream &&in) : in(std::move(in)) { }
 
     int IfstreamFileHandle :: read(char *buf, int start, int size) {
+        in.clear();
         in.seekg(start);
         in.read(buf, size);
         return in.gcount();
@@ -47,6 +48,10 @@ namespace MediaFs {
 
     void FileCache :: refreshRanges() {
         handleMutex.lock();
+        if (buffers.size() <= 1) {
+            handleMutex.unlock();
+            return;
+        }
         std::list<std::pair<int, std::unique_ptr<Buffer> > > ranges;
         for (auto buffer = buffers.begin(); buffer != buffers.end(); buffer++) {
             std::pair<int, std::unique_ptr<Buffer> > range(buffer->first, std::move(buffer->second));
@@ -89,15 +94,13 @@ namespace MediaFs {
             buffers[item.first] = std::move(item.second);
         }
 
-        std::cout << "refreshed ranges\n";
-        std::cout << *this;
 
         handleMutex.unlock();
     }
 
     std::tuple<const char*, int> FileCache :: operator[](std::pair<int, int> range) {
         handleMutex.lock();
-        short size = range.second - range.first;
+        int size = range.second - range.first;
         for (auto &buffer : buffers) {
             if ((range.first >= buffer.first) && (range.second <= (buffer.first + buffer.second->size))) {
                 handleMutex.unlock();
@@ -110,9 +113,12 @@ namespace MediaFs {
         buffers[range.first]->data = data;
         buffers[range.first]->size = gcount;
         handleMutex.unlock();
+        return {buffers[range.first]->data, buffers[range.first]->size};
+    }
+
+    void FileCache :: refreshRangesAsync() {
         std::thread rangeRefresher(FileCache::refreshRangesInBackground, this);
         rangeRefresher.detach();
-        return {buffers[range.first]->data, buffers[range.first]->size};
     }
 
     void FileCache :: refreshRangesInBackground(FileCache *fileCache) {

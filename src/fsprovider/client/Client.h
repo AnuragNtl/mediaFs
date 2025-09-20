@@ -42,9 +42,11 @@ namespace MediaFs {
             bool isContentReady();
             Content& operator[](int index);
             int getReadyLength() const;
+            bool isWaitingForLength() const;
+            int getExpectedLength() const;
     };
 
-    class Client  : public FSProvider {
+    class Client  : public CacheableFSProvider {
         private:
             ios io;
             tcp::endpoint endpoint;
@@ -60,6 +62,7 @@ namespace MediaFs {
             const char* read(std::string path, int &size, int offset);
             std::vector<Attr> readDir(std::string path);
             Attr getAttr(std::string path);
+            void updateCaches();
             friend class ClientFileHandle;
     };
 

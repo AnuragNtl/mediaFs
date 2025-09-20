@@ -28,6 +28,11 @@ namespace MediaFs {
             virtual ~FSProvider() { }
     };
 
+    class CacheableFSProvider : public FSProvider {
+        public:
+            virtual void updateCaches() = 0;
+    };
+
 };
 
 #endif
