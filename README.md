@@ -2,7 +2,7 @@
 [Fuse](https://github.com/libfuse/libfuse) based media server.
 
 ### Features:
-* Server and client side caching.
+* Server and client side caching for recent files.
 
 ### Build:
 
@@ -23,7 +23,8 @@ usage: mediafs --t=client|server --d=PATH
 ```
 
 ### TODO
-[ ] Auth layer 
-[ ] Save cache to disk, resume.
+
+- [ ] Auth layer 
+- [ ] Save cache to disk, resume.
 
 
