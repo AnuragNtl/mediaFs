@@ -1,3 +1,4 @@
+#include <boost/exception/exception.hpp>
 #include <string>
 #include <iostream>
 #include <thread>
@@ -34,13 +35,13 @@ namespace MediaFs {
         char *errOutput = new char[1];
         errOutput[0] = '\0';
         do {
-            std::cout << "__\n";
-            boost::asio::streambuf buf;
-            boost::asio::read_until(*socket, buf, "\n");
-            std::string data = boost::asio::buffer_cast<const char*>(buf.data());
             int length;
             const char *output = NULL;
+            std::string data;
             try {
+                boost::asio::streambuf buf;
+                boost::asio::read_until(*socket, buf, "\n");
+                data = boost::asio::buffer_cast<const char*>(buf.data());
                 output = metadataServer->parser->parse(data.c_str(), data.size(), length);
             } catch(std::exception& e) {
                 output = NULL;
@@ -48,24 +49,36 @@ namespace MediaFs {
                 output = NULL;
             }
             //boost::asio::write(*socket, boost::asio::buffer(std::string("abcdef")));
-            if (output == NULL) {
-                length = 1;
-                output = errOutput;
-                boost::asio::write(*socket, boost::asio::buffer(output, 1));
+            try {
+                if (output == NULL) {
+                    boost::asio::write(*socket, boost::asio::buffer(errOutput, 1));
+                    break;
+                } else {
+                    std::string len = std::to_string(length);
+                    boost::asio::write(*socket, boost::asio::buffer(len, len.size()));
+                    boost::asio::write(*socket, boost::asio::buffer(LEN_SEPARATOR, 1));
+                    boost::asio::write(*socket, boost::asio::buffer(output, length));
+                    CacheableFSProvider *cacheableProvider = dynamic_cast<CacheableFSProvider*>(&(*metadataServer->parser->fsProvider));
+                    if (cacheableProvider != NULL) {
+                        cacheableProvider->updateCaches();
+                    }
+
+                }
+            } catch (boost::exception &e) {
+                if (output != NULL) {
+                    //delete[] output;
+                }
                 break;
-            } else {
-                std::string len = std::to_string(length);
-                boost::asio::write(*socket, boost::asio::buffer(len, len.size()));
-                boost::asio::write(*socket, boost::asio::buffer(LEN_SEPARATOR, 1));
-                boost::asio::write(*socket, boost::asio::buffer(output, length));
             }
-            std::cout << data << "\n";
-            delete[] output;
+            if (output != NULL) {
+                //delete[] output;
+            }
         } while (socket->is_open());
         if (socket->is_open()) {
             socket->close();
         }
 
+        delete[] errOutput;
         delete socket;
     }
 
@@ -75,17 +88,17 @@ namespace MediaFs {
             len = size;
             int offset = stoi(data[2]);
             const char *output = this->fsProvider->read(data[0], len, offset);
-            std::cout << "output " << output << "\n";
             return output;
         };
 
         functionMap['d'] = [this] (std::vector<std::string> data, int &len) {
             std::vector<Attr> attrs = this->fsProvider->readDir(data[0]);
             std::string output = "";
+            int sz = attrs.size() - 1;
             for (const auto &attr : attrs) {
-                output += formatAttr(attr) + "\n";
+                output += formatAttr(attr) + (sz-- > 0 ?  "\n" : "");
             }
-            len = output.size() + 1;
+            len = output.size();
             char *buf = new char[len];
             strcpy(buf, output.c_str());
             return buf;
@@ -94,7 +107,7 @@ namespace MediaFs {
         functionMap['g'] = [this] (std::vector<std::string> data, int &len) {
             std::string file = data[0];
             std::string attr = formatAttr(this->fsProvider->getAttr(file));
-            len = attr.size() + 1;
+            len = attr.size();
             char *buf = new char[len];
             strcpy(buf, attr.c_str());
             return buf;
@@ -107,8 +120,11 @@ namespace MediaFs {
         }
 
         std::string content(data + 1, length - 1);
-        std::cout << data[0] << " content " << content << "\n";
         std::vector<std::string> params = MediaFs::split(content, " ");
+        std::string &param = params.back();
+        if (param.back() == '\n') {
+            param = param.substr(0, param.size() - 1);
+        }
         auto handler = functionMap.find(data[0]);
         if (handler != functionMap.end()) {
             return (handler->second)(params, outputLength);

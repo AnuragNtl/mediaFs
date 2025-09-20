@@ -19,7 +19,7 @@
 
 namespace MediaFs {
 
-    class Server : public FSProvider {
+    class Server : public CacheableFSProvider {
         private:
             LRUCache<std::string, FileCache*> openHandles;
             std::vector<FileCache*> addedCaches;
@@ -30,6 +30,7 @@ namespace MediaFs {
             const char* read(std::string path, int &, int);
             std::vector<Attr> readDir(std::string path);
             Attr getAttr(std::string path);
+            void updateCaches();
             virtual ~Server();
 
     };

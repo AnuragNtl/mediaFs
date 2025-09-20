@@ -12,41 +12,27 @@ int readDir(const char *path, void *buffer, fuse_fill_dir_t filler,
     int size;
     std::vector<MediaFs::Attr> contents = MediaFs::client->readDir(std::string(path));
 
+    filler(buffer, ".", NULL, 0);
+    filler(buffer, "..", NULL, 0);
     for(const auto &item : contents) {
         struct stat stBuf;
         setAttr(item, &stBuf);
-        filler(buffer, item.name.c_str(), &stBuf, 0);
+        filler(buffer, item.name.c_str(), NULL, 0);
     }
 
-    std::cout << "Path readDir " << path << "\n";
-    /*filler(buffer, ".", NULL, 0);
-    filler(buffer, "..", NULL, 0);
-    filler(buffer, "s2.mp4", NULL, 0);*/
     return 0;
 }
 
 int read(const char *path, char *buffer, size_t size, off_t offset, struct fuse_file_info *fi) {
 
     int sz = size;
-    MediaFs::client->read(path, sz, offset);
+    const char *data = MediaFs::client->read(path, sz, offset);
+    memcpy(buffer, data, sz);
+    MediaFs::CacheableFSProvider *cacheableProvider = dynamic_cast<MediaFs::CacheableFSProvider*>(MediaFs::client);
+    if (cacheableProvider != NULL) {
+        cacheableProvider->updateCaches();
+    }
     return sz;
-    ////////
-    std::cout << "Path read " << path << "\n";
-    if (offset > 788609574) return -1;
-    std::ifstream in("/home/administrator/My Darling Clementine (1946)/My.Darling.Clementine.1946.720p.BluRay.x264.YIFY.mp4", std::ios::binary | std::ios::in);
-    //std::ifstream in("/home/administrator/package.json", std::ios::binary | std::ios::in);
-    in.seekg(offset, std::ios::beg);
-    in.read(buffer, size);
-    std::cout << "read " << size << " bytes with offset " << offset << "\n";
-    int count = in.gcount();
-    /*if (in.eof()) {
-        count = -1;
-    }*/
-    std::cout << "size read " << count << "\n";
-    in.close();
-    return count;
-    //strcpy(buffer, "abcdef");
-    //return 10;
 }
 
 int open(const char *path, struct fuse_file_info *fi) {
@@ -70,7 +56,6 @@ void setAttr(MediaFs::Attr attr, struct stat *st) {
 
 int getAttr(const char *path, struct stat *st) {
 
-    std::cout << "Path getAttr " << path << "\n";
     try {
         setAttr(MediaFs::client->getAttr(path), st);
     } catch (std::exception &e) {
@@ -95,8 +80,7 @@ int getAttr(const char *path, struct stat *st) {
 
 
 int ioctlHandler(const char *, int, void *, struct fuse_file_info *info, unsigned int, void*) {
-    std::cout << "ioctl \n";
-    return 0;
+    return -ENOSYS;
 }
 
 namespace MediaFs {

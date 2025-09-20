@@ -20,6 +20,7 @@ namespace MediaFs {
         char prevData[32];
         int ct = 0;
         if (buf[0] == '\0') {
+            pendingContentsMutex.unlock();
             throw std::exception();
         }
         for (const auto &content : pendingContents) {
@@ -83,7 +84,6 @@ namespace MediaFs {
         if (waitingForLength) {
             int len = 0;
             const char *buf = extractLength(data, bufLen, len);
-            ClientBuf &&ss = std::move(*this);
 
             if (buf == NULL) {
                 pendingContents.push_back(MAKE_CONTENT(bufLen, data));
@@ -128,7 +128,8 @@ namespace MediaFs {
                 Content updated = MAKE_CONTENT(std::get<0>(content) - eLen, curBuf);
                 content.swap(updated);
             } else {
-                pendingContents.erase(it);
+                it--;
+                pendingContents.erase(it + 1);
             }
             eLen -= curLen;
         }
@@ -142,7 +143,6 @@ namespace MediaFs {
     }
 
     int ClientBuf :: read(char *buf, int len) {
-        std::cout << "Client read\n";
         readyContentsMutex.lock();
         int ct = 0;
         while (ct < len && !readyContents.empty()) {
@@ -170,6 +170,14 @@ namespace MediaFs {
         return this->readyLength;
     }
 
+    bool ClientBuf :: isWaitingForLength() const {
+        return this->waitingForLength;
+    }
+
+    int ClientBuf :: getExpectedLength() const {
+        return this->expectingLength;
+    }
+
     void Client :: sendRequest(tcp::socket &socket, std::string payload) {
         // TODO
         socket.connect(endpoint);
@@ -186,15 +194,22 @@ namespace MediaFs {
             boost::asio::streambuf recvBuf;
             boost::system::error_code error;
 
-            boost::asio::read(socket, recvBuf, boost::asio::transfer_all(), error);
+            if (buf.isWaitingForLength()) {
+                boost::asio::read(socket, recvBuf, boost::asio::transfer_at_least(2), error);
+            } else {
+                boost::asio::read(socket, recvBuf, boost::asio::transfer_exactly(buf.getExpectedLength() - buf.getTotalPendingLength()), error);
+            }
 
             if (error && error != boost::asio::error::eof) {
+                socket.close();
                 throw std::exception();
             }
 
             const char *data = boost::asio::buffer_cast<const char *>(recvBuf.data());
+            char *ss = new char[recvBuf.size()];
+            memcpy(ss, data, recvBuf.size());
 
-            buf.add(data, recvBuf.size());
+            buf.add(ss, recvBuf.size());
         } while (!buf.isContentReady() && socket.is_open());
     }
 
@@ -210,8 +225,9 @@ namespace MediaFs {
         sendRequest(socket, MediaPacketParser::generate('d', params));
         ClientBuf buf;
         readUntilReady(buf, socket);
-        char *data = new char[buf.size()];
-        buf.read(data, buf.size());
+        int readyLength = buf.getReadyLength();
+        char *data = new char[readyLength];
+        buf.read(data, readyLength);
         std::vector<Attr> attrs;
         for (const auto line : MediaFs::split(data, "\n")) {
             attrs.push_back(parseAttr(line));
@@ -225,9 +241,12 @@ namespace MediaFs {
         sendRequest(socket, MediaPacketParser::generate('g', params));
         ClientBuf buf;
         readUntilReady(buf, socket);
-        char *data = new char[buf.size()];
-        buf.read(data, buf.size());
-        auto attr = parseAttr(data);
+        int readyLength = buf.getReadyLength();
+        char *data = new char[readyLength];
+        buf.read(data, readyLength);
+        std::string attrs(data, readyLength);
+        auto attr = parseAttr(attrs);
+        delete[] data;
         return attr;
     }
 
@@ -255,7 +274,7 @@ namespace MediaFs {
         client.sendRequest(socket, 
                 MediaPacketParser::generate('r', params));
         client.readUntilReady(buf, socket);
-        return buf.read(data, size);
+        return buf.read(data, buf.getReadyLength());
     }
 
     const char* Client :: read(std::string path, int &size, int offset) {
@@ -268,6 +287,13 @@ namespace MediaFs {
         FileCache &handle = *openHandles[path];
         auto data = handle[std::make_pair(offset, offset + size)];
         size = std::get<1>(data);
-        return std::get<0>(data);
+        auto contents = std::get<0>(data);
+        return contents;
+    }
+
+    void Client :: updateCaches() {
+        for (FileCache *cache : addedCaches) {
+            cache->refreshRangesAsync();
+        }
     }
 }

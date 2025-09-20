@@ -1,4 +1,5 @@
 #include <iostream>
+#include <ostream>
 
 #include "Utils.h"
 
@@ -17,6 +18,11 @@ namespace MediaFs {
             i = index;
         } while (i != -1);
         return items;
+    }
+
+    std::ostream& operator<<(std::ostream& out, Attr attr) {
+        out << "Attr(" << attr.name << "," << attr.size << "," << attr.supportedType << ")\n";
+        return out;
     }
 };
 
