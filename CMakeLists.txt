@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(MediaFs VERSION 1.0)
+project(mediafs VERSION 1.0)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED on)
@@ -10,13 +10,13 @@ find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(FUSE "fuse")
 
-add_executable(MediaFs src/MediaFs.cpp src/transfer/server/MetadataServer.cpp src/fsprovider/server/Server.cpp src/fsprovider/filecache/FileCache.cpp src/Utils.cpp src/fsprovider/client/Client.cpp src/fuseWrapper/FuseWrapper.cpp)
+add_executable(mediafs src/MediaFs.cpp src/transfer/server/MetadataServer.cpp src/fsprovider/server/Server.cpp src/fsprovider/filecache/FileCache.cpp src/Utils.cpp src/fsprovider/client/Client.cpp src/fuseWrapper/FuseWrapper.cpp)
 
 add_subdirectory(googletest)
 
 
-target_link_libraries(MediaFs pthread boost_system boost_filesystem)
-target_link_libraries(MediaFs ${FUSE_LIBRARIES})
+target_link_libraries(mediafs pthread boost_system boost_filesystem)
+target_link_libraries(mediafs ${FUSE_LIBRARIES})
 add_definitions(${FUSE_CFLAGS} ${FUSE_CFLAGS_OTHER})
 
 enable_testing()
