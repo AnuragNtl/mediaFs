@@ -11,24 +11,30 @@
 
 namespace MediaFs {
 
-    MetadataServer :: MetadataServer(int port, std::unique_ptr<FSProvider> &&client) : parser(std::unique_ptr<MediaPacketParser>(new MediaPacketParser(std::move(client)))), port(port) { }
+    MetadataServer :: MetadataServer(int port, std::unique_ptr<FSProvider> &&client) : parser(std::unique_ptr<MediaPacketParser>(new MediaPacketParser(std::move(client)))), port(port), running(false) { }
 
     void MetadataServer :: startListen() {
+        running.store(true);
         tcp::acceptor acceptor(ioService, tcp::endpoint(tcp::v4(), port));
         try {
-            while (true) {
+            while (running.load()) {
                 if (!acceptor.is_open()) {
                     return;
                 }
                 tcp::socket *socket = new tcp::socket(ioService);
                 acceptor.accept(*socket);
                 if (!socket->is_open()) {
+                    delete socket;
                     return;
                 }
                 std::thread handle(handleClient, socket, this);
                 handle.detach();
             }
         } catch (boost::wrapexcept<boost::system::system_error> e) { }
+    }
+
+    void MetadataServer :: stopServer() {
+        running.store(false);
     }
 
     void MetadataServer :: handleClient(tcp::socket *socket, MetadataServer *metadataServer) {
@@ -65,6 +71,7 @@ namespace MediaFs {
 
                 }
             } catch (boost::exception &e) {
+                delete socket;
                 if (output != NULL) {
                     //delete[] output;
                 }

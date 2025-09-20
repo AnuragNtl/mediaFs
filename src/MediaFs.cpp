@@ -16,6 +16,7 @@ MediaFs::MetadataServer *parser;
 std::map<std::string, std::string> getOptions(int argc, char *argv[]);
 
 void printHelp();
+std::atomic<bool> running;
 
 int main(int argc, char *argv[]) {
     char fOpt[] = "-f",
@@ -33,8 +34,11 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     if (options["type"] == "client") {
+        running.store(true);
         fuseOpts[1] = const_cast<char *>(options["directory"].c_str());
-        return fuse_main(3, fuseOpts, MediaFs::getRegistered(), 0);
+        std::thread client([&fuseOpts] { fuse_main(3, fuseOpts, MediaFs::getRegistered(), 0);});
+        while (running.load()) { std::this_thread::yield(); }
+        delete MediaFs::client;
     } else if (options["type"] == "server") {
         if (chdir(options["directory"].c_str()) < 0) {
             std::cerr << "cannot change to dir " << argv[1] << "\n";
@@ -42,18 +46,21 @@ int main(int argc, char *argv[]) {
         }
         std::unique_ptr<MediaFs::FSProvider> fsProvider = std::make_unique<MediaFs::Server>();
         MediaFs::MetadataServer *parser = new MediaFs::MetadataServer(8086, std::move(fsProvider));
-        parser->startListen();
+        running.store(true);
+        std::thread server([&parser] () { parser->startListen(); });
+        while (running.load()) { std::this_thread::yield(); }
+        parser->stopServer();
+        std::cout << "~server \n";
+        //server.join();
         delete parser;
     } else {
         printHelp();
     }
     return 0;
-    //return fuse_main(argc, argv, MediaFs::getRegistered(), 0);
 }
 
 void sigIntHandler(int signal) {
-    std::cout << "sigint " << signal << "\n";
-    exit(0);
+    running.store(false);
 }
 
 struct option allOpts[] = {

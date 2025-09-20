@@ -7,6 +7,7 @@
 #include <memory>
 #include <map>
 #include <boost/asio.hpp>
+#include <iostream>
 
 #include "../../Utils.h"
 
@@ -17,6 +18,7 @@ namespace MediaFs {
     class MetadataServer {
         private:
             int port;
+            std::atomic<bool> running;
             std::unique_ptr<MediaPacketParser> parser;
             boost::asio::io_service ioService;
             static void handleClient(tcp::socket *socket, MetadataServer *);
@@ -24,6 +26,7 @@ namespace MediaFs {
             MetadataServer(const MetadataServer &) = delete;
             MetadataServer(int port, std::unique_ptr<FSProvider> &&);
             void startListen();
+            void stopServer();
     };
 
     class MediaPacketParser {
