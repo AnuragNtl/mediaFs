@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
         delete MediaFs::client;
     } else if (options["type"] == "server") {
         if (chdir(options["directory"].c_str()) < 0) {
-            std::cerr << "cannot change to dir " << argv[1] << "\n";
+            std::cerr << "cannot change to dir " << options["directory"] << "\n";
             return 1;
         }
         std::unique_ptr<MediaFs::FSProvider> fsProvider = std::make_unique<MediaFs::Server>();
