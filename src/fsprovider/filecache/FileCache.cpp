@@ -108,12 +108,17 @@ namespace MediaFs {
             }
         }
         char *data = new char[size];
-        int gcount = fileHandle->read(data, range.first, size);
-        buffers[range.first] = std::make_unique<Buffer>();
-        buffers[range.first]->data = data;
-        buffers[range.first]->size = gcount;
-        handleMutex.unlock();
-        return {buffers[range.first]->data, buffers[range.first]->size};
+        try {
+            int gcount = fileHandle->read(data, range.first, size);
+            buffers[range.first] = std::make_unique<Buffer>();
+            buffers[range.first]->data = data;
+            buffers[range.first]->size = gcount;
+            handleMutex.unlock();
+            return {buffers[range.first]->data, buffers[range.first]->size};
+        } catch(std::exception &e) {
+            handleMutex.unlock();
+            throw e;
+        }
     }
 
     void FileCache :: refreshRangesAsync() {

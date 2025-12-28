@@ -228,6 +228,7 @@ namespace MediaFs {
         int readyLength = buf.getReadyLength();
         char *data = new char[readyLength];
         buf.read(data, readyLength);
+        std::cout << "readDir() " << data << ":\n";
         std::vector<Attr> attrs;
         for (const auto line : MediaFs::split(data, "\n")) {
             attrs.push_back(parseAttr(line));

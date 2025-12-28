@@ -15,6 +15,7 @@ int readDir(const char *path, void *buffer, fuse_fill_dir_t filler,
     filler(buffer, ".", NULL, 0);
     filler(buffer, "..", NULL, 0);
     for(const auto &item : contents) {
+        std::cout << "readdir item" << item.name << "\n";
         struct stat stBuf;
         setAttr(item, &stBuf);
         filler(buffer, item.name.c_str(), NULL, 0);

@@ -44,18 +44,23 @@ namespace MediaFs {
         if (path == "/") {
             path = ".";
         }
-        path = path[0] == '/' ? path.substr(1, path.size()) : path;
+        path = path[0] == '/' ? path.substr(1, path.size() - 1) : path;
         std::vector<Attr> contents;
         boost::filesystem::directory_iterator it;
         boost::filesystem::path fPath(path);
         for (boost::filesystem::directory_iterator it0(path); it0 != it; it0++) {
             std::string path = it0->path().string();
-            if (path[0] == '.') {
-                path = path.substr(1);
+            if (path[0] == '/') {
+                path = path.substr(1, path.size() - 1);
             }
-            contents.push_back(getAttr(path));
-        }
-        for (const auto &content : contents) {
+            std::cout << "Path " << path << "\n";
+            Attr attr = getAttr(path);
+            std::cout << "attr name " << attr.name << "\n";
+            attr.name = boost::filesystem::basename(path);
+            std::string ext = boost::filesystem::extension(path);
+            attr.name += ext;
+            std::cout << "attr name " << attr.name << "\n";
+            contents.push_back(attr);
         }
         return contents;
     }
@@ -64,10 +69,13 @@ namespace MediaFs {
         if (path == "/") {
             path = ".";
         } else {
-            path = path[0] == '/' ? path.substr(1) : path;
+            path = path[0] == '/' ? path.substr(1, path.size() - 1) : path;
         }
         Attr attr;
         attr.name = path;
+        if (!boost::filesystem::exists(path)) {
+            throw std::exception();
+        }
         if (!boost::filesystem::is_directory(path)) {
             attr.size = boost::filesystem::file_size(path);
         } else {

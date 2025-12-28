@@ -4,6 +4,7 @@
 #include <thread>
 #include <numeric>
 #include <fstream>
+#include <cstring>
 
 #include "./MetadataServer.h"
 #include "../../Utils.h"
@@ -94,6 +95,7 @@ namespace MediaFs {
             int size = stoi(data[1]);
             len = size;
             int offset = stoi(data[2]);
+            std::cout << "r " << data[0] << "\n";
             const char *output = this->fsProvider->read(data[0], len, offset);
             return output;
         };
@@ -101,12 +103,13 @@ namespace MediaFs {
         functionMap['d'] = [this] (std::vector<std::string> data, int &len) {
             std::vector<Attr> attrs = this->fsProvider->readDir(data[0]);
             std::string output = "";
+            std::cout << "d " << data[0] << "\n";
             int sz = attrs.size() - 1;
             for (const auto &attr : attrs) {
                 output += formatAttr(attr) + (sz-- > 0 ?  "\n" : "");
             }
             len = output.size();
-            char *buf = new char[len];
+            char *buf = new char[len + 1];
             strcpy(buf, output.c_str());
             return buf;
         };
@@ -114,8 +117,9 @@ namespace MediaFs {
         functionMap['g'] = [this] (std::vector<std::string> data, int &len) {
             std::string file = data[0];
             std::string attr = formatAttr(this->fsProvider->getAttr(file));
+            std::cout << "g " << data[0] << "\n";
             len = attr.size();
-            char *buf = new char[len];
+            char *buf = new char[len + 1];
             strcpy(buf, attr.c_str());
             return buf;
         };
