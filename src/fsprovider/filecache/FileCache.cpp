@@ -1,5 +1,7 @@
 #include "FileCache.h"
+#include "../../Utils.h"
 
+#include <boost/filesystem/operations.hpp>
 #include <unistd.h>
 #include <iostream>
 #include <memory>
@@ -9,13 +11,67 @@
 namespace MediaFs {
     InvalidItemException :: InvalidItemException(std::string message) : message(message) { }
 
-    IfstreamFileHandle :: IfstreamFileHandle(std::ifstream &&in) : in(std::move(in)) { }
+    IfstreamFileHandle :: IfstreamFileHandle(std::string path, std::ifstream &&in) : FileHandle(path), in(std::move(in)) { }
 
     int IfstreamFileHandle :: read(char *buf, int start, int size) {
         in.clear();
         in.seekg(start);
         in.read(buf, size);
         return in.gcount();
+    }
+
+    FileHandle :: FileHandle(std::string path) : path(path) {
+
+    }
+
+    std::string FileHandle :: getPath() {
+        return path;
+    }
+
+    void FileCache :: loadFromFileAsync(std::string dir) {
+        handleMutex.lock();
+        std::string file = fileHandle.get()->getPath();
+        for (boost::filesystem::directory_iterator it(dir); it != boost::filesystem::directory_iterator(); it++) {
+            std::string path = it->path().string();
+            if (boost::filesystem::is_directory(path)) {
+                for (boost::filesystem::directory_iterator it1(dir); it != boost::filesystem::directory_iterator(); it++) {
+                    std::string path = it->path().string();
+                    std::ifstream in(path, std::ios::in | std::ios::binary);
+                    std::unique_ptr<Buffer> buf = std::make_unique<Buffer>();
+                    std::vector<std::string> parts = MediaFs::split(path, "-");
+                    if(parts.size() < 2) {
+                        std::cerr << "Ignoring file " << path << " as it does not match the format\n";
+                    }
+                    int sz = boost::filesystem::file_size(path);
+                    char *data = new char[sz];
+                    in.read(data, sz);
+                    buf->data = data;
+                    buf->size = sz;
+                    buffers[std::stoi(parts[0])] = std::move(buf);
+                }
+            }
+        }
+        handleMutex.unlock();
+    }
+
+    void FileCache :: syncInFileAsync(std::string dir) {
+        handleMutex.lock();
+        boost::filesystem::create_directory(dir);
+        std::string file = fileHandle.get()->getPath();
+        try {
+            for (std::map<int, std::unique_ptr<Buffer> > :: iterator it = buffers.begin(); it != buffers.end(); it++) {
+                int indx = it->first;
+                const Buffer *buffer = it->second.get();
+                const char *data = buffer->data;
+                int size = buffer->size;
+                boost::filesystem::create_directory(dir + "/" + file);
+                std::ofstream out(dir + "/" + file + "/" + std::to_string(it->first) + "-" + std::to_string(size), std::ios::out | std::ios::binary);
+                out.write(data, 0);
+                out.flush();
+                out.close();
+            }
+        } catch (std::exception &e) { }
+        handleMutex.unlock();
     }
 
     IfstreamFileHandle :: ~IfstreamFileHandle() {

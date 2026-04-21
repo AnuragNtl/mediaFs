@@ -69,7 +69,6 @@ namespace MediaFs {
     class ClientFileHandle : public FileHandle {
         private:
             Client &client;
-            std::string path;
         public:
             ClientFileHandle(Client &client, std::string path);
             int read(char *buf, int start, int size);

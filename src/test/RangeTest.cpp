@@ -47,7 +47,7 @@ class FileCacheFixture : public testing::Test {
 };
 
 void FileCacheFixture :: SetUp() {
-    fileCache = new MediaFs::FileCache(std::unique_ptr<MediaFs::FileHandle>(new MediaFs::IfstreamFileHandle(std::ifstream())));
+    fileCache = new MediaFs::FileCache(std::unique_ptr<MediaFs::FileHandle>(new MediaFs::IfstreamFileHandle("", std::ifstream())));
     fileCache->buffers[0] = std::unique_ptr<MediaFs::Buffer>(new MediaFs::Buffer("1234", 4));
     fileCache->buffers[4] = std::unique_ptr<MediaFs::Buffer>(new MediaFs::Buffer("5678", 4));
     fileCache->buffers[8] = std::unique_ptr<MediaFs::Buffer>(new MediaFs::Buffer("5678", 4));

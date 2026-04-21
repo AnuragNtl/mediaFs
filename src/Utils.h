@@ -14,6 +14,8 @@ namespace MediaFs {
 
     std::vector<std::string> split(std::string, std::string delim = " ");
     std::ostream& operator<<(std::ostream &out, Attr attr);
+    std::string base64Encode(std::string);
+    std::string base64Decode(std::string);
 };
 
 #endif

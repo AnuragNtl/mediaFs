@@ -23,7 +23,7 @@ namespace MediaFs {
             return resp;
         }
         if (!openHandles.has(path)) {
-            FileCache* cache = new FileCache(std::unique_ptr<FileHandle>(new IfstreamFileHandle(std::move(*(new std::ifstream(path, std::ios::in | std::ios::binary))))));
+            FileCache* cache = new FileCache(std::unique_ptr<FileHandle>(new IfstreamFileHandle(path, std::move(*(new std::ifstream(path, std::ios::in | std::ios::binary))))));
             openHandles.add(path, cache);
             addedCaches.push_back(cache);
         }

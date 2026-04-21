@@ -266,7 +266,7 @@ namespace MediaFs {
         }
     }
 
-    ClientFileHandle :: ClientFileHandle(Client &client, std::string path) : client(client), path(path) { }
+    ClientFileHandle :: ClientFileHandle(Client &client, std::string path) : FileHandle(path), client(client) { }
 
     int ClientFileHandle :: read(char *data, int offset, int size) {
         ClientBuf buf;

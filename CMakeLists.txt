@@ -21,18 +21,22 @@ add_definitions(${FUSE_CFLAGS} ${FUSE_CFLAGS_OTHER})
 
 enable_testing()
 
-add_executable(RangeTest src/test/RangeTest.cpp src/fsprovider/filecache/FileCache.cpp)
-add_executable(LRUCacheTest src/test/LRUCacheTest.cpp src/fsprovider/filecache/FileCache.cpp)
+add_executable(RangeTest src/test/RangeTest.cpp src/Utils.cpp src/fsprovider/filecache/FileCache.cpp)
+add_executable(LRUCacheTest src/test/LRUCacheTest.cpp src/Utils.cpp src/fsprovider/filecache/FileCache.cpp)
 add_executable(MetadataServerTest src/test/MetadataServerTest.cpp src/transfer/server/MetadataServer.cpp src/Utils.cpp)
 add_executable(ClientBufTest src/fsprovider/client/Client.cpp src/test/ClientBufTest.cpp src/transfer/server/MetadataServer.cpp src/fsprovider/filecache/FileCache.cpp src/Utils.cpp)
+add_executable(B64 src/Utils.cpp src/test/B64.cpp)
+
 target_link_libraries(RangeTest GTest::gtest_main boost_filesystem)
 target_link_libraries(LRUCacheTest GTest::gtest_main boost_filesystem)
 target_link_libraries(MetadataServerTest GTest::gtest_main)
 target_link_libraries(ClientBufTest GTest::gtest_main boost_system boost_filesystem)
+target_link_libraries(B64 GTest::gtest_main)
 
 include(GoogleTest)
 gtest_discover_tests(RangeTest)
 gtest_discover_tests(LRUCacheTest)
 gtest_discover_tests(MetadataServerTest)
 gtest_discover_tests(ClientBufTest)
+gtest_discover_tests(B64)
 

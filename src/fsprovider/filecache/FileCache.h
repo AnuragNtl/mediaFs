@@ -209,7 +209,11 @@ namespace MediaFs {
     extern std::pair<int, std::unique_ptr<Buffer> >* combineRanges(std::pair<int, std::unique_ptr<Buffer> > &, std::pair<int, std::unique_ptr<Buffer> > &);
 
     class FileHandle {
+        protected:
+            std::string path;
         public:
+            FileHandle(std::string path);
+            std::string getPath();
             virtual int read(char *buf, int start, int size) = 0;
             virtual ~FileHandle() {}
     };
@@ -218,7 +222,7 @@ namespace MediaFs {
         private:
             std::ifstream &&in;
         public:
-            IfstreamFileHandle(std::ifstream &&in);
+            IfstreamFileHandle(std::string, std::ifstream &&in);
             int read(char *buf, int start, int size);
             ~IfstreamFileHandle();
     };
@@ -234,6 +238,8 @@ namespace MediaFs {
             void refreshRanges();
             void refreshRangesAsync();
             std::tuple<const char*, int> operator[](std::pair<int, int>);
+            void syncInFileAsync(std::string);
+            void loadFromFileAsync(std::string);
     };
 
     std::ostream& operator<<(std::ostream &, const FileCache &);
